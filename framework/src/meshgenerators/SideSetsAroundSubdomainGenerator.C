@@ -57,6 +57,7 @@ SideSetsAroundSubdomainGenerator::SideSetsAroundSubdomainGenerator(
     _external_only(getParam<bool>("external_only")),
     _normal_tol(getParam<Real>("normal_tol")),
     _normal(_using_normal ? getParam<Point>("normal") : Point())
+
 {
   if (_using_normal)
   {

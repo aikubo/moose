@@ -11,6 +11,10 @@
 
 #include "SideSetsGeneratorBase.h"
 
+#include "libmesh/elem.h"
+#include "libmesh/point.h"
+
+
 /**
  * This class will add sidesets to the entire mesh based on unique normals.
  * Note: This algorithm may not work well with meshes containing curved faces.
@@ -28,14 +32,24 @@ public:
 protected:
   boundary_id_type getNextBoundaryID();
 
+  
   /**
    * A pointer to the Mesh's boundary set, this datastructure will be modified
    * through this modifier.
    */
   std::set<boundary_id_type> _mesh_boundary_ids;
 
+  /// prefix string for the boundary names
+  const std::vector<std::string> & _boundary_name_prefix;
+
   /// the input mesh to which the sidesets will be added
   std::unique_ptr<MeshBase> & _input;
+  
+  /// Whether or not subdomain_ids parameter is set
+  bool _has_subdomain_ids;
+
+  /// The blocks around which to create sidesets
+  std::vector<SubdomainName> _block_names;
 
   /// Mesh meta data for holding the map from boundary IDs to the normals of the corresponding bounrares
   std::map<BoundaryID, RealVectorValue> & _boundary_to_normal_map;
