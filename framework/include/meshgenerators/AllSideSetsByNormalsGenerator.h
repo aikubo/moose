@@ -48,6 +48,12 @@ protected:
   /// Whether or not subdomain_ids parameter is set
   bool _has_subdomain_ids;
 
+  /// Whether or not offset parameter is set
+  bool _has_offset;
+
+  /// Offset for sideset numbers
+  const std::vector<std:: unsigned int> & _offset;
+
   /// The blocks around which to create sidesets
   std::vector<SubdomainName> _block_names;
 
