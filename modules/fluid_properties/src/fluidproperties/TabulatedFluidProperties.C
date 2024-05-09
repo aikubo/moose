@@ -346,6 +346,8 @@ TabulatedFluidProperties::initialSetup()
     _interpolate_density = false;
     _interpolate_enthalpy = false;
     _interpolate_viscosity = false;
+    _construct_pT_from_ve = true;
+    _construct_pT_from_vh = true;
   }
 
   constructInterpolation();
