@@ -49,7 +49,7 @@ if [[ -n "${FAST}"  ]] ; then
 else
   if [ -z "$SKIP_SUBMODULE_UPDATE" ]; then
     cd $MOOSE_DIR
-    git submodule update --init --recursive "${WASP_SRC_DIR}"
+    git -C "${WASP_SRC_DIR}" submodule update --init --recursive
     if [[ $? -ne 0 ]] ; then
       echo "Error: git submodule update failed to complete successfully"
       mkdir -p "${WASP_SRC_DIR}"
