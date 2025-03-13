@@ -25,6 +25,7 @@
 # PETSC_OPTIONS: Options to pass to update_and_rebuild_petsc.sh.
 # LIBMESH_REV: Commit hash of submodule libmesh.
 # LIBMESH_OPTIONS: Options to pass to update_and_rebuild_libmesh.sh.
+# WASP_OPTIONS: Options to pass to update_and_rebuild_wasp.sh
 # BUILD_MODULES: Set to build all MOOSE modules.
 #-----------------------------------------------------------------------------#
 ARG DISTRO_NAME=ubuntu
@@ -137,6 +138,7 @@ if [ ! -d $LIBMESH_DIR/include/libmesh ]; then exit 1; fi
 # Install wasp to system path
 #-----------------------------------------------------------------------------#
 ARG WASP_REV=c8c9ce4259115973f147e345608450d87dc390c4
+ARG WASP_OPTIONS
 ENV WASP_DIR=/usr/local/wasp
 
 COPY scripts/update_and_rebuild_wasp.sh ${MOOSE_DIR}/scripts/update_and_rebuild_wasp.sh
@@ -149,7 +151,7 @@ cd wasp ; \
 git checkout ${WASP_REV} ; \
 git submodule update --init --recursive ; \
 cd ../../.. ; \
-./scripts/update_and_rebuild_wasp.sh -D CMAKE_INSTALL_PREFIX:STRING=${WASP_DIR} ; \
+./scripts/update_and_rebuild_wasp.sh ${WASP_OPTIONS} -D CMAKE_INSTALL_PREFIX:STRING=${WASP_DIR} ; \
 rm -rf framework || true
 
 #-----------------------------------------------------------------------------#
