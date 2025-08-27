@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -23,6 +23,8 @@ UserObject::validParams()
   // Add the SetupInterface parameter, 'execute_on', and set it to a default of 'timestep_end'
   params += SetupInterface::validParams();
   params.set<ExecFlagEnum>("execute_on", true) = EXEC_TIMESTEP_END;
+  ExecFlagEnum & exec_enum = params.set<ExecFlagEnum>("execute_on", true);
+  exec_enum.addAvailableFlags(EXEC_TRANSFER);
 
   params.addParam<bool>("use_displaced_mesh",
                         false,
@@ -55,9 +57,10 @@ UserObject::validParams()
   params.registerBase("UserObject");
   params.registerSystemAttributeName("UserObject");
 
-  params.addParamNamesToGroup("use_displaced_mesh allow_duplicate_execution_on_initial "
-                              "force_preaux force_postaux force_preic execution_order_group",
-                              "Advanced");
+  params.addParamNamesToGroup("execute_on force_preaux force_postaux force_preic "
+                              "allow_duplicate_execution_on_initial execution_order_group",
+                              "Execution scheduling");
+  params.addParamNamesToGroup("use_displaced_mesh", "Advanced");
   return params;
 }
 
@@ -74,6 +77,7 @@ UserObject::UserObject(const InputParameters & parameters)
     Restartable(this, "UserObjects"),
     MeshMetaDataInterface(this),
     MeshChangedInterface(parameters),
+    MeshDisplacedInterface(parameters),
     PerfGraphInterface(this),
     _subproblem(*getCheckedPointerParam<SubProblem *>("_subproblem")),
     _fe_problem(*getCheckedPointerParam<FEProblemBase *>("_fe_problem_base")),
@@ -145,10 +149,4 @@ UserObject::setPrimaryThreadCopy(UserObject * primary)
 {
   if (!_primary_thread_copy && primary != this)
     _primary_thread_copy = primary;
-}
-
-unsigned int
-UserObject::systemNumber() const
-{
-  return _sys.number();
 }

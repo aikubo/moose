@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -325,7 +325,7 @@ public:
    * @return The IDs corresponding to the material properties that
    * MUST be reinited before evaluating this object
    */
-  const std::unordered_set<unsigned int> & getMatPropDependencies() const
+  virtual const std::unordered_set<unsigned int> & getMatPropDependencies() const
   {
     return _material_property_dependencies;
   }

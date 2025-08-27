@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -26,8 +26,11 @@ protected:
   /// Pointer to the MooseObject (to call paramError)
   const MooseObject * const _derived_object;
 
+  /// Parameter that the function comes from
+  const std::string _function_param;
+
   /// function expression
-  std::string _function;
+  const std::string _function;
 
   /// constant vectors
   std::vector<std::string> _constant_names;

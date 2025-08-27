@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -81,7 +81,10 @@ void
 InversePowerMethod::execute()
 {
   if (_app.isRecovering())
+  {
+    _last_solve_converged = true;
     return;
+  }
 
   preExecute();
 

@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -31,7 +31,7 @@ public:
   /**
    * Get a value from the solution vector.
    */
-  Number operator()(Node * node) const
+  Number operator()(const Node * node) const
   {
     // The 0 assumes linear Lagrange (I think)
     dof_id_type dof = node->dof_number(_var.sys().number(), _var.number(), 0);
@@ -40,7 +40,7 @@ public:
   /**
    * Get a value from the old solution vector.
    */
-  Number old(Node * node) const
+  Number old(const Node * node) const
   {
     // The 0 assumes linear Lagrange (I think)
     dof_id_type dof = node->dof_number(_var.sys().number(), _var.number(), 0);
@@ -49,18 +49,21 @@ public:
   /**
    * Set a value in the solution vector.
    */
-  void set(Node * node, Number val)
+  void set(const Node * node, Number val)
   {
     dof_id_type dof = node->dof_number(_var.sys().number(), _var.number(), 0);
     _soln.set(dof, val);
   }
 
-  Real L2norm() { return _var.sys().system().calculate_norm(_soln, _var.number(), DISCRETE_L2); }
+  Real L2norm() const
+  {
+    return _var.sys().system().calculate_norm(_soln, _var.number(), DISCRETE_L2);
+  }
 
   void close() { _soln.close(); }
 
 private:
   MooseVariableFieldBase & _var;
   NumericVector<Number> & _soln;
-  NumericVector<Number> & _soln_old;
+  const NumericVector<Number> & _soln_old;
 };

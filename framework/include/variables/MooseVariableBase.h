@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -32,6 +32,13 @@ class SubProblem;
 class SystemBase;
 class MooseMesh;
 
+/**
+ * Base variable class. Sadly there are a lot of methods in here that should be pure virtual but
+ * can't be because AddVariableAction/MooseObjectAction will retrieve the validParams of
+ * MooseVariableBase which checks to ensure that MooseVariableBase is a registered object, and
+ * registration requires an instantiation. So we add runtime errors instead of compile-time
+ * errors for these would-be pure virtuals
+ */
 class MooseVariableBase : public MooseObject,
                           public BlockRestrictable,
                           public OutputInterface,
@@ -41,6 +48,9 @@ public:
   static InputParameters validParams();
 
   MooseVariableBase(const InputParameters & parameters);
+
+  /// Returns the variable name of a component of an array variable
+  const std::string & arrayVariableComponent(const unsigned int i) const;
 
   /**
    * Get variable number coming from libMesh
@@ -62,11 +72,6 @@ public:
    * Get the system this variable is part of.
    */
   const SystemBase & sys() const { return _sys; }
-
-  /**
-   * Get the variable name
-   */
-  const std::string & name() const override { return _var_name; }
 
   /**
    * Get dual mortar option
@@ -178,12 +183,17 @@ public:
   /**
    * @return whether this is an array variable
    */
-  bool isArray() const { return _is_array; }
+  virtual bool isArray() const { return !_array_var_component_names.empty(); }
 
   /**
    * @return whether this variable lives on lower dimensional blocks
    */
   bool isLowerD() const { return _is_lower_d; }
+
+  /**
+   * Size data structures related to matrix tagging
+   */
+  virtual void sizeMatrixTagData() { mooseError("Derived class must implement this method"); }
 
 protected:
   /**
@@ -236,17 +246,14 @@ protected:
   /// scaling factor for this variable
   std::vector<Real> _scaling_factor;
 
-  /// Variable name
-  std::string _var_name;
-
   /// If dual mortar approach is used
   bool _use_dual;
 
-  /// Whether this is an array variable
-  const bool _is_array;
-
   /// Whether this variable lives on lower dimensional blocks
   bool _is_lower_d;
+
+  /// Array variable names when the variable is an array variable
+  std::vector<std::string> _array_var_component_names;
 };
 
 inline void
@@ -269,5 +276,4 @@ MooseVariableBase::setActiveTags(const std::set<TagID> &)
   using MooseVariableBase::_mesh;                                                                  \
   using MooseVariableBase::_tid;                                                                   \
   using MooseVariableBase::_count;                                                                 \
-  using MooseVariableBase::_scaling_factor;                                                        \
-  using MooseVariableBase::_var_name
+  using MooseVariableBase::_scaling_factor

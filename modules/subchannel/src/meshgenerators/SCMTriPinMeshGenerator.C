@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -107,8 +107,8 @@ SCMTriPinMeshGenerator::generate()
       elem = mesh_base->add_elem(elem);
       const int indx1 = (_n_cells + 1) * i + iz + node_sub;
       const int indx2 = (_n_cells + 1) * i + (iz + 1) + node_sub;
-      elem->set_node(0) = mesh_base->node_ptr(indx1);
-      elem->set_node(1) = mesh_base->node_ptr(indx2);
+      elem->set_node(0, mesh_base->node_ptr(indx1));
+      elem->set_node(1, mesh_base->node_ptr(indx2));
     }
   }
   mesh_base->subdomain_name(_block_id) = name();

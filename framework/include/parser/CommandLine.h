@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -39,7 +39,7 @@ public:
     std::string name;
     /// The name of the subapp, if any (with subapp:something=value syntax)
     std::optional<std::string> subapp_name;
-    /// The value, i.e. ["-foo=bar"] -> "-foo" or ["-foo"] -> empty, if any
+    /// The value, i.e. ["-foo=bar"] -> "bar" or ["-foo"] -> empty, if any
     std::optional<std::string> value;
     /// The string that separates the value, if a value exists (space or =)
     std::optional<std::string> value_separator;
@@ -124,7 +124,7 @@ public:
    *
    * This will also mark all found HIT parameters as used.
    */
-  std::string buildHitParams();
+  std::vector<std::string> buildHitParams();
 
   /**
    * @return The raw argv arguments as a vector
@@ -233,6 +233,8 @@ private:
   bool _has_parsed = false;
   /// Whether or not command line parameters have been populated
   bool _command_line_params_populated = false;
+  /// Whether or not the HIT parameters have been built (set as used)
+  bool _hit_params_built = false;
 };
 
 template <typename T>

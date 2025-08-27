@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -131,24 +131,6 @@ CombinedApp::registerAll(Factory & f, ActionFactory & af, Syntax & s)
   SubChannelApp::registerAll(f, af, s);
   ThermalHydraulicsApp::registerAll(f, af, s);
   XFEMApp::registerAll(f, af, s);
-}
-
-void
-CombinedApp::registerObjects(Factory & /*factory*/)
-{
-  mooseError("registerObjects is deprecated, fix the calling application");
-}
-
-void
-CombinedApp::associateSyntax(Syntax & /*syntax*/, ActionFactory & /*action_factory*/)
-{
-  mooseError("associateSyntax is deprecated, fix the calling application");
-}
-
-void
-CombinedApp::registerExecFlags(Factory & /*factory*/)
-{
-  mooseError("registerExecFlags is deprecated, fix the calling application");
 }
 
 extern "C" void

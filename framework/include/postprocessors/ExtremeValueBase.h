@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -9,7 +9,11 @@
 
 #pragma once
 
+#include "libmesh/libmesh_common.h"
 #include <utility>
+
+class UserObject;
+class InputParameters;
 
 template <class T>
 class ExtremeValueBase : public T
@@ -20,12 +24,12 @@ public:
   ExtremeValueBase(const InputParameters & parameters);
 
   virtual void initialize() override;
-  virtual Real getValue() const override;
+  virtual libMesh::Real getValue() const override;
   virtual void finalize() override;
   virtual void threadJoin(const UserObject & y) override;
 
 protected:
-  virtual std::pair<Real, Real> getProxyValuePair() = 0;
+  virtual std::pair<libMesh::Real, libMesh::Real> getProxyValuePair() = 0;
 
   /// Get the extreme value with a functor element argument
   virtual void computeExtremeValue();
@@ -39,5 +43,5 @@ protected:
   } _type;
 
   /// Extreme value and proxy value at the same point
-  std::pair<Real, Real> _proxy_value;
+  std::pair<libMesh::Real, libMesh::Real> _proxy_value;
 };

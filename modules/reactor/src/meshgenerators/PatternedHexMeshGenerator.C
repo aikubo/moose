@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -125,6 +125,10 @@ PatternedHexMeshGenerator::validParams()
       "boundary_region_element_type",
       quad_elem_type,
       "Type of the quadrilateral elements to be generated in the boundary region.");
+  params.addParam<bool>(
+      "allow_unused_inputs",
+      false,
+      "Whether additional input assemblies can be part of inputs without being used in lattice");
   params.addParamNamesToGroup(
       "background_block_id background_block_name duct_block_ids boundary_region_element_type "
       "duct_block_names external_boundary_id external_boundary_name "
@@ -179,7 +183,8 @@ PatternedHexMeshGenerator::PatternedHexMeshGenerator(const InputParameters & par
     _use_exclude_id(isParamValid("exclude_id")),
     _use_interface_boundary_id_shift(isParamValid("interface_boundary_id_shift_pattern")),
     _boundary_quad_elem_type(
-        getParam<MooseEnum>("boundary_region_element_type").template getEnum<QUAD_ELEM_TYPE>())
+        getParam<MooseEnum>("boundary_region_element_type").template getEnum<QUAD_ELEM_TYPE>()),
+    _allow_unused_inputs(getParam<bool>("allow_unused_inputs"))
 {
   declareMeshProperty("pattern_pitch_meta", 0.0);
   declareMeshProperty("input_pitch_meta", 0.0);
@@ -221,10 +226,11 @@ PatternedHexMeshGenerator::PatternedHexMeshGenerator(const InputParameters & par
   if (*std::max_element(pattern_max_array.begin(), pattern_max_array.end()) >= _input_names.size())
     paramError("pattern",
                "Elements of this parameter must be smaller than the length of input_name.");
-  if ((unsigned int)std::distance(pattern_1d.begin(),
-                                  std::unique(pattern_1d.begin(), pattern_1d.end())) <
-      _input_names.size())
-    paramError("pattern", "All the meshes provided in inputs must be used here.");
+  if (std::set<unsigned int>(pattern_1d.begin(), pattern_1d.end()).size() < _input_names.size() &&
+      !_allow_unused_inputs)
+    paramError("pattern",
+               "All the meshes provided in inputs must be used in the lattice pattern. To bypass "
+               "this requirement, set 'allow_unused_inputs = true'");
 
   if (isParamValid("background_block_id"))
   {
@@ -1080,8 +1086,8 @@ PatternedHexMeshGenerator::addPeripheralMesh(
                                           (i != extra_dist.size() - 1) &&
                                               _create_outward_interface_boundaries);
 
-      if (mesh.is_prepared()) // Need to prepare if the other is prepared to stitch
-        meshp0->prepare_for_use();
+      // The other_mesh must be prepared before stitching
+      meshp0->prepare_for_use();
 
       // rotate the peripheral mesh to the desired side of the hexagon.
       MeshTools::Modification::rotate(*meshp0, rotation_angle, 0, 0);

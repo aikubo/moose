@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -14,7 +14,7 @@
 class SubChannelTestApp : public SubChannelApp
 {
 public:
-  SubChannelTestApp(InputParameters parameters);
+  SubChannelTestApp(const InputParameters & parameters);
   virtual ~SubChannelTestApp();
 
   static void registerApps();

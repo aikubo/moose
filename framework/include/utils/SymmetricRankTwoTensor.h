@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -419,6 +419,12 @@ public:
   /// Print the Real part of the ADReal rank two tensor along with its first nDual dual numbers
   void printADReal(unsigned int nDual, std::ostream & stm = Moose::out) const;
 
+  friend std::ostream & operator<<(std::ostream & os, const SymmetricRankTwoTensorTempl<T> & t)
+  {
+    t.print(os);
+    return os;
+  }
+
   /// Add identity times a to _vals
   void addIa(const T & a);
 
@@ -588,7 +594,7 @@ SymmetricRankTwoTensorTempl<T>::positiveProjectionEigenDecomposition(
     // Separate out positive and negative eigen values
     std::array<T, N> epos;
     std::array<T, N> d;
-    for (unsigned int i = 0; i < N; ++i)
+    for (unsigned int i = 0; i < Ndim; ++i)
     {
       epos[i] = (std::abs(eigval[i]) + eigval[i]) / 2.0;
       d[i] = 0 < eigval[i] ? 1.0 : 0.0;

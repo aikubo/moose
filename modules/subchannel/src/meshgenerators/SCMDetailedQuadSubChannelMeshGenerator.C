@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -33,9 +33,12 @@ SCMDetailedQuadSubChannelMeshGenerator::validParams()
   params.addRequiredParam<unsigned int>("n_cells", "The number of cells in the axial direction");
   params.addRequiredParam<unsigned int>("nx", "Number of channels in the x direction [-]");
   params.addRequiredParam<unsigned int>("ny", "Number of channels in the y direction [-]");
-  params.addRequiredParam<Real>("gap",
-                                "(Its an added distance between a perimetric pin and the duct: "
-                                "Edge Pitch W = pitch/2 - pin_diameter/2 + gap) [m]");
+  params.addRequiredParam<Real>(
+      "gap",
+      "The side gap, not to be confused with the gap between pins, this refers to the gap "
+      "next to the duct or else the distance between the subchannel centroid to the duct wall."
+      "distance(edge pin center, duct wall) = pitch / 2 + side_gap [m]");
+  params.deprecateParam("gap", "side_gap", "08/06/2026");
   params.addParam<unsigned int>("block_id", 0, "Block ID used for the mesh subdomain.");
   return params;
 }
@@ -52,7 +55,7 @@ SCMDetailedQuadSubChannelMeshGenerator::SCMDetailedQuadSubChannelMeshGenerator(
     _nx(getParam<unsigned int>("nx")),
     _ny(getParam<unsigned int>("ny")),
     _n_channels(_nx * _ny),
-    _gap(getParam<Real>("gap")),
+    _side_gap(getParam<Real>("side_gap")),
     _block_id(getParam<unsigned int>("block_id"))
 {
   Real L = _unheated_length_entry + _heated_length + _unheated_length_exit;
@@ -222,12 +225,9 @@ SCMDetailedQuadSubChannelMeshGenerator::generate()
       auto c_pt = circle_points[2 * m - ii];
       tl_corner_points[ii + 1] = quadrant_centers[3] + c_pt;
     }
-    tl_corner_points[points_per_quad + 1] =
-        Point(_pitch * 0.5 * shrink_factor, _pitch * 0.25 * shrink_factor + _gap, 0);
-    tl_corner_points[points_per_quad + 2] =
-        Point(-_pitch * 0.25 * shrink_factor - _gap, _pitch * 0.25 * shrink_factor + _gap, 0);
-    tl_corner_points[points_per_quad + 3] =
-        Point(-_pitch * 0.25 * shrink_factor - _gap, -_pitch * 0.5 * shrink_factor, 0);
+    tl_corner_points[points_per_quad + 1] = Point(_pitch * 0.5 * shrink_factor, _side_gap, 0);
+    tl_corner_points[points_per_quad + 2] = Point(-_side_gap, _side_gap, 0);
+    tl_corner_points[points_per_quad + 3] = Point(-_side_gap, -_pitch * 0.5 * shrink_factor, 0);
   }
 
   // Build an array of points that represent a cross section of a top right corner subchannel
@@ -244,12 +244,9 @@ SCMDetailedQuadSubChannelMeshGenerator::generate()
       auto c_pt = circle_points[m - ii];
       tr_corner_points[ii + 1] = quadrant_centers[2] + c_pt;
     }
-    tr_corner_points[points_per_quad + 1] =
-        Point(_pitch * 0.25 * shrink_factor + _gap, -_pitch * 0.5 * shrink_factor, 0);
-    tr_corner_points[points_per_quad + 2] =
-        Point(_pitch * 0.25 * shrink_factor + _gap, _pitch * 0.25 * shrink_factor + _gap, 0);
-    tr_corner_points[points_per_quad + 3] =
-        Point(-_pitch * 0.5 * shrink_factor, _pitch * 0.25 * shrink_factor + _gap, 0);
+    tr_corner_points[points_per_quad + 1] = Point(_side_gap, -_pitch * 0.5 * shrink_factor, 0);
+    tr_corner_points[points_per_quad + 2] = Point(_side_gap, _side_gap, 0);
+    tr_corner_points[points_per_quad + 3] = Point(-_pitch * 0.5 * shrink_factor, _side_gap, 0);
   }
 
   // Build an array of points that represent a cross section of a bottom left corner subchannel
@@ -266,12 +263,9 @@ SCMDetailedQuadSubChannelMeshGenerator::generate()
       auto c_pt = circle_points[3 * m - ii];
       bl_corner_points[ii + 1] = quadrant_centers[0] + c_pt;
     }
-    bl_corner_points[points_per_quad + 1] =
-        Point(-_pitch * 0.25 * shrink_factor - _gap, _pitch * 0.5 * shrink_factor, 0);
-    bl_corner_points[points_per_quad + 2] =
-        Point(-_pitch * 0.25 * shrink_factor - _gap, -_pitch * 0.25 * shrink_factor - _gap, 0);
-    bl_corner_points[points_per_quad + 3] =
-        Point(_pitch * 0.5 * shrink_factor, -_pitch * 0.25 * shrink_factor - _gap, 0);
+    bl_corner_points[points_per_quad + 1] = Point(-_side_gap, _pitch * 0.5 * shrink_factor, 0);
+    bl_corner_points[points_per_quad + 2] = Point(-_side_gap, -_side_gap, 0);
+    bl_corner_points[points_per_quad + 3] = Point(_pitch * 0.5 * shrink_factor, -_side_gap, 0);
   }
 
   // Build an array of points that represent a cross section of a bottom right corner subchannel
@@ -288,12 +282,9 @@ SCMDetailedQuadSubChannelMeshGenerator::generate()
       auto c_pt = circle_points[4 * m - ii];
       br_corner_points[ii + 1] = quadrant_centers[1] + c_pt;
     }
-    br_corner_points[points_per_quad + 1] =
-        Point(-_pitch * 0.5 * shrink_factor, -_pitch * 0.25 * shrink_factor - _gap, 0);
-    br_corner_points[points_per_quad + 2] =
-        Point(_pitch * 0.25 * shrink_factor + _gap, -_pitch * 0.25 * shrink_factor - _gap, 0);
-    br_corner_points[points_per_quad + 3] =
-        Point(_pitch * 0.25 * shrink_factor + _gap, _pitch * 0.5 * shrink_factor, 0);
+    br_corner_points[points_per_quad + 1] = Point(-_pitch * 0.5 * shrink_factor, -_side_gap, 0);
+    br_corner_points[points_per_quad + 2] = Point(_side_gap, -_side_gap, 0);
+    br_corner_points[points_per_quad + 3] = Point(_side_gap, _pitch * 0.5 * shrink_factor, 0);
   }
 
   // Build an array of points that represent a cross section of a top side subchannel
@@ -315,10 +306,8 @@ SCMDetailedQuadSubChannelMeshGenerator::generate()
       auto c_pt = circle_points[2 * m - ii];
       top_points[points_per_quad + ii + 1] = quadrant_centers[3] + c_pt;
     }
-    top_points[2 * points_per_quad + 1] =
-        Point(_pitch * 0.5 * shrink_factor, _pitch * 0.25 * shrink_factor + _gap, 0);
-    top_points[2 * points_per_quad + 2] =
-        Point(-_pitch * 0.5 * shrink_factor, _pitch * 0.25 * shrink_factor + _gap, 0);
+    top_points[2 * points_per_quad + 1] = Point(_pitch * 0.5 * shrink_factor, _side_gap, 0);
+    top_points[2 * points_per_quad + 2] = Point(-_pitch * 0.5 * shrink_factor, _side_gap, 0);
   }
 
   // Build an array of points that represent a cross section of a left side subchannel
@@ -340,10 +329,8 @@ SCMDetailedQuadSubChannelMeshGenerator::generate()
       auto c_pt = circle_points[3 * m - ii];
       left_points[points_per_quad + ii + 1] = quadrant_centers[0] + c_pt;
     }
-    left_points[2 * points_per_quad + 1] =
-        Point(-_pitch * 0.25 * shrink_factor - _gap, _pitch * 0.5 * shrink_factor, 0);
-    left_points[2 * points_per_quad + 2] =
-        Point(-_pitch * 0.25 * shrink_factor - _gap, -_pitch * 0.5 * shrink_factor, 0);
+    left_points[2 * points_per_quad + 1] = Point(-_side_gap, _pitch * 0.5 * shrink_factor, 0);
+    left_points[2 * points_per_quad + 2] = Point(-_side_gap, -_pitch * 0.5 * shrink_factor, 0);
   }
 
   // Build an array of points that represent a cross section of a bottom side subchannel
@@ -365,10 +352,8 @@ SCMDetailedQuadSubChannelMeshGenerator::generate()
       auto c_pt = circle_points[4 * m - ii];
       bottom_points[points_per_quad + ii + 1] = quadrant_centers[1] + c_pt;
     }
-    bottom_points[2 * points_per_quad + 1] =
-        Point(-_pitch * 0.5 * shrink_factor, -_pitch * 0.25 * shrink_factor - _gap, 0);
-    bottom_points[2 * points_per_quad + 2] =
-        Point(_pitch * 0.5 * shrink_factor, -_pitch * 0.25 * shrink_factor - _gap, 0);
+    bottom_points[2 * points_per_quad + 1] = Point(-_pitch * 0.5 * shrink_factor, -_side_gap, 0);
+    bottom_points[2 * points_per_quad + 2] = Point(_pitch * 0.5 * shrink_factor, -_side_gap, 0);
   }
 
   // Build an array of points that represent a cross section of a right side subchannel
@@ -390,10 +375,8 @@ SCMDetailedQuadSubChannelMeshGenerator::generate()
       auto c_pt = circle_points[m - ii];
       right_points[points_per_quad + ii + 1] = quadrant_centers[2] + c_pt;
     }
-    right_points[2 * points_per_quad + 1] =
-        Point(_pitch * 0.25 * shrink_factor + _gap, -_pitch * 0.5 * shrink_factor, 0);
-    right_points[2 * points_per_quad + 2] =
-        Point(_pitch * 0.25 * shrink_factor + _gap, _pitch * 0.5 * shrink_factor, 0);
+    right_points[2 * points_per_quad + 1] = Point(_side_gap, -_pitch * 0.5 * shrink_factor, 0);
+    right_points[2 * points_per_quad + 2] = Point(_side_gap, _pitch * 0.5 * shrink_factor, 0);
   }
 
   // Add the points to the mesh.
@@ -610,19 +593,19 @@ SCMDetailedQuadSubChannelMeshGenerator::generate()
             unsigned int indx2 =
                 (iz + 1) * points_per_side + points_per_side * (_n_cells + 1) * i_ch;
             unsigned int elems_per_channel = elems_per_side;
-            elem->set_node(0) = mesh_base->node_ptr(indx1);
-            elem->set_node(1) = mesh_base->node_ptr(indx1 + i + 1);
+            elem->set_node(0, mesh_base->node_ptr(indx1));
+            elem->set_node(1, mesh_base->node_ptr(indx1 + i + 1));
             if (i != elems_per_channel - 1)
-              elem->set_node(2) = mesh_base->node_ptr(indx1 + i + 2);
+              elem->set_node(2, mesh_base->node_ptr(indx1 + i + 2));
             else
-              elem->set_node(2) = mesh_base->node_ptr(indx1 + 1);
+              elem->set_node(2, mesh_base->node_ptr(indx1 + 1));
 
-            elem->set_node(3) = mesh_base->node_ptr(indx2);
-            elem->set_node(4) = mesh_base->node_ptr(indx2 + i + 1);
+            elem->set_node(3, mesh_base->node_ptr(indx2));
+            elem->set_node(4, mesh_base->node_ptr(indx2 + i + 1));
             if (i != elems_per_channel - 1)
-              elem->set_node(5) = mesh_base->node_ptr(indx2 + i + 2);
+              elem->set_node(5, mesh_base->node_ptr(indx2 + i + 2));
             else
-              elem->set_node(5) = mesh_base->node_ptr(indx2 + 1);
+              elem->set_node(5, mesh_base->node_ptr(indx2 + 1));
 
             if (iz == 0)
               boundary_info.add_side(elem, 0, 0);
@@ -683,19 +666,19 @@ SCMDetailedQuadSubChannelMeshGenerator::generate()
             elem->set_id(elem_id++);
             elem = mesh_base->add_elem(elem);
 
-            elem->set_node(0) = mesh_base->node_ptr(indx1);
-            elem->set_node(1) = mesh_base->node_ptr(indx1 + i + 1);
+            elem->set_node(0, mesh_base->node_ptr(indx1));
+            elem->set_node(1, mesh_base->node_ptr(indx1 + i + 1));
             if (i != elems_per_channel - 1)
-              elem->set_node(2) = mesh_base->node_ptr(indx1 + i + 2);
+              elem->set_node(2, mesh_base->node_ptr(indx1 + i + 2));
             else
-              elem->set_node(2) = mesh_base->node_ptr(indx1 + 1);
+              elem->set_node(2, mesh_base->node_ptr(indx1 + 1));
 
-            elem->set_node(3) = mesh_base->node_ptr(indx2);
-            elem->set_node(4) = mesh_base->node_ptr(indx2 + i + 1);
+            elem->set_node(3, mesh_base->node_ptr(indx2));
+            elem->set_node(4, mesh_base->node_ptr(indx2 + i + 1));
             if (i != elems_per_channel - 1)
-              elem->set_node(5) = mesh_base->node_ptr(indx2 + i + 2);
+              elem->set_node(5, mesh_base->node_ptr(indx2 + i + 2));
             else
-              elem->set_node(5) = mesh_base->node_ptr(indx2 + 1);
+              elem->set_node(5, mesh_base->node_ptr(indx2 + 1));
 
             if (iz == 0)
               boundary_info.add_side(elem, 0, 0);
@@ -760,19 +743,19 @@ SCMDetailedQuadSubChannelMeshGenerator::generate()
             elem->set_id(elem_id++);
             elem = mesh_base->add_elem(elem);
 
-            elem->set_node(0) = mesh_base->node_ptr(indx1);
-            elem->set_node(1) = mesh_base->node_ptr(indx1 + i + 1);
+            elem->set_node(0, mesh_base->node_ptr(indx1));
+            elem->set_node(1, mesh_base->node_ptr(indx1 + i + 1));
             if (i != elems_per_channel - 1)
-              elem->set_node(2) = mesh_base->node_ptr(indx1 + i + 2);
+              elem->set_node(2, mesh_base->node_ptr(indx1 + i + 2));
             else
-              elem->set_node(2) = mesh_base->node_ptr(indx1 + 1);
+              elem->set_node(2, mesh_base->node_ptr(indx1 + 1));
 
-            elem->set_node(3) = mesh_base->node_ptr(indx2);
-            elem->set_node(4) = mesh_base->node_ptr(indx2 + i + 1);
+            elem->set_node(3, mesh_base->node_ptr(indx2));
+            elem->set_node(4, mesh_base->node_ptr(indx2 + i + 1));
             if (i != elems_per_channel - 1)
-              elem->set_node(5) = mesh_base->node_ptr(indx2 + i + 2);
+              elem->set_node(5, mesh_base->node_ptr(indx2 + i + 2));
             else
-              elem->set_node(5) = mesh_base->node_ptr(indx2 + 1);
+              elem->set_node(5, mesh_base->node_ptr(indx2 + 1));
 
             if (iz == 0)
               boundary_info.add_side(elem, 0, 0);

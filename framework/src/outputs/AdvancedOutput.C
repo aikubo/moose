@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -140,6 +140,7 @@ AdvancedOutput::AdvancedOutput(const InputParameters & parameters)
                                                            : false),
     _scalar_as_nodal(isParamValid("scalar_as_nodal") ? getParam<bool>("scalar_as_nodal") : false),
     _reporter_data(_problem_ptr->getReporterData()),
+    _last_execute_time(declareRecoverableData<std::map<std::string, Real>>("last_execute_time")),
     _postprocessors_as_reporters(getParam<bool>("postprocessors_as_reporters")),
     _vectorpostprocessors_as_reporters(getParam<bool>("vectorpostprocessors_as_reporters"))
 {
@@ -434,7 +435,7 @@ AdvancedOutput::initAvailableLists()
       {
         VariableName vname = var_name;
         if (var.isArray())
-          vname = SubProblem::arrayVariableComponent(var_name, i);
+          vname = var.arrayVariableComponent(i);
 
         // A note that if we have p-refinement we assume "worst-case" scenario that our constant
         // monomial/monomial-vec families have been refined and we can no longer write them as
@@ -526,7 +527,7 @@ AdvancedOutput::initShowHideLists(const std::vector<VariableName> & show,
       {
         VariableName vname = var_name;
         if (var.isArray())
-          vname = SubProblem::arrayVariableComponent(var_name, i);
+          vname = var.arrayVariableComponent(i);
 
         if (type.order == CONSTANT)
           _execute_data["elemental"].show.insert(vname);
@@ -580,7 +581,7 @@ AdvancedOutput::initShowHideLists(const std::vector<VariableName> & show,
       {
         VariableName vname = var_name;
         if (var.isArray())
-          vname = SubProblem::arrayVariableComponent(var_name, i);
+          vname = var.arrayVariableComponent(i);
 
         if (type.order == CONSTANT)
           _execute_data["elemental"].hide.insert(vname);

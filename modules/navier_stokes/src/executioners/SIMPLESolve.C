@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -45,7 +45,15 @@ SIMPLESolve::checkIntegrity()
   if (_has_energy_system)
     checkTimeKernels(*_energy_system);
 
+  if (_has_turbulence_systems)
+    for (const auto system : _turbulence_systems)
+      checkTimeKernels(*system);
+
   if (_has_passive_scalar_systems)
     for (const auto system : _passive_scalar_systems)
+      checkTimeKernels(*system);
+
+  if (_has_active_scalar_systems)
+    for (const auto system : _active_scalar_systems)
       checkTimeKernels(*system);
 }

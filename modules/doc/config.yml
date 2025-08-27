@@ -154,6 +154,7 @@ Extensions:
             constraints: syntax/Constraints/index.md
             controllogic: syntax/ControlLogic/index.md
             controls: syntax/Controls/index.md
+            convergence: syntax/Convergence/index.md
             correctors: syntax/Correctors/index.md
             covariances: syntax/Covariance/index.md
             dampers: syntax/Dampers/index.md
@@ -169,7 +170,6 @@ Extensions:
             fviks: syntax/FVInterfaceKernels/index.md
             fvics: syntax/FVICs/index.md
             fvkernels: syntax/FVKernels/index.md
-            hdgbcs: syntax/HDGBCs/index.md
             hdgkernels: syntax/HDGKernels/index.md
             linearfvkernels: syntax/LinearFVKernels/index.md
             linearfvbcs: syntax/LinearFVBCs/index.md
@@ -185,6 +185,7 @@ Extensions:
             meshdivisions: syntax/MeshDivisions/index.md
             meshgenerators: syntax/Mesh/index.md
             meshmodifiers: syntax/MeshModifiers/index.md
+            mfem: syntax/MFEM/index.md
             multiapps: syntax/MultiApps/index.md
             neml2: syntax/NEML2/index.md
             nodalkernels: syntax/NodalKernels/index.md

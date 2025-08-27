@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -1374,6 +1374,15 @@ MooseVariableFE<OutputType>::jacobianSetup()
   _current_elem_qp_functor_elem = nullptr;
   _current_elem_side_qp_functor_elem_side = std::make_pair(nullptr, libMesh::invalid_uint);
   MooseVariableField<OutputType>::jacobianSetup();
+}
+
+template <typename OutputType>
+void
+MooseVariableFE<OutputType>::sizeMatrixTagData()
+{
+  _element_data->sizeMatrixTagData();
+  _neighbor_data->sizeMatrixTagData();
+  _lower_data->sizeMatrixTagData();
 }
 
 template class MooseVariableFE<Real>;

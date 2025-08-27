@@ -1,15 +1,33 @@
+# Include variables defined by MOOSE configure if it's been run
+-include $(MOOSE_DIR)/conf_vars.mk
+
 # Whether or not to do a Unity build
-MOOSE_UNITY ?= true
-MOOSE_HEADER_SYMLINKS ?= true
+# If we are making compile_commands.json, default MOOSE_UNITY and MOOSE_HEADER_SYMLINKS to false
+ifeq ($(GENERATING_COMPILE_COMMANDS),true)
+  MOOSE_UNITY ?= false
+  MOOSE_HEADER_SYMLINKS ?= false
+else
+  MOOSE_UNITY ?= true
+  MOOSE_HEADER_SYMLINKS ?= true
+endif
 
 # We ignore this in the contrib folder because we will set up the include
 # directories manually later
-IGNORE_CONTRIB_INC ?= libtorch
+IGNORE_CONTRIB_INC ?= libtorch mfem neml2
 ENABLE_LIBTORCH ?= false
+ENABLE_MFEM ?= false
 
 # this allows us to modify the linked names/rpaths safely later for install targets
 ifneq (,$(findstring darwin,$(libmesh_HOST)))
 	libmesh_LDFLAGS += -Wl,-headerpad_max_install_names
+endif
+
+#
+# Dynamic library suffix
+#
+lib_suffix := so
+ifeq ($(shell uname -s),Darwin)
+	lib_suffix := dylib
 endif
 
 #
@@ -46,6 +64,7 @@ hit_srcdir    := $(HIT_DIR)/src/hit
 hit_srcfiles  := $(hit_srcdir)/parse.cc $(hit_srcdir)/lex.cc $(hit_srcdir)/braceexpr.cc
 hit_objects   := $(patsubst %.cc, %.$(obj-suffix), $(hit_srcfiles))
 hit_LIB       := $(HIT_DIR)/libhit-$(METHOD).la
+hit_DYLIB     := $(HIT_DIR)/libhit-$(METHOD).$(lib_suffix)
 # dependency files
 hit_deps      := $(patsubst %.cc, %.$(obj-suffix).d, $(hit_srcfiles))
 # hit command line tool
@@ -59,13 +78,14 @@ $(hit_objects): | prebuild
 pyhit_srcfiles  := $(hit_srcdir)/hit.cpp $(hit_srcdir)/lex.cc $(hit_srcdir)/parse.cc $(hit_srcdir)/braceexpr.cc
 
 #
-# Dynamic library suffix
+# capabilities python bindings
 #
-lib_suffix := so
-ifeq ($(shell uname -s),Darwin)
-	lib_suffix := dylib
-endif
+CAPABILITIES_DIR ?= $(MOOSE_DIR)/framework/contrib/capabilities
+capabilities_srcfiles := $(CAPABILITIES_DIR)/capabilities.C $(FRAMEWORK_DIR)/src/utils/CapabilityUtils.C
 
+# Making a .la object instead.  This is what you make out of .lo objects...
+moose_LIB := $(FRAMEWORK_DIR)/libmoose-$(METHOD).la
+moose_DYLIB := $(FRAMEWORK_DIR)/libmoose-$(METHOD).$(lib_suffix)
 #
 # wasp
 #
@@ -84,20 +104,36 @@ libmesh_CXXFLAGS  += $(wasp_CXXFLAGS)
 libmesh_LDFLAGS   += $(wasp_LDFLAGS)
 
 #
+# neml2
+#
+include $(FRAMEWORK_DIR)/contrib/neml2.mk
+
+SKIP_EXTERNAL_LIBRARY_CHECK_TARGETS := clean clobber cleanall clobberall echo_include echo_library install_make_dir libmesh_submodule_status
+
+# $(call check_library_should_error,<libname>)
+define check_library_should_error
+ifeq ($(strip $$(MAKECMDGOALS)),)
+  $$(eval $1_should_error := true)
+else
+  $$(eval $1_filtered_goals := $$(filter $$(SKIP_EXTERNAL_LIBRARY_CHECK_TARGETS),$$(MAKECMDGOALS)))
+  ifneq ($$(words $$($1_filtered_goals)),$$(words $$(MAKECMDGOALS)))
+    $$(eval $1_should_error := true)
+  endif
+endif
+endef
+
+#
 # Conditional parts if the user wants to compile MOOSE with torchlib
 #
 ifeq ($(ENABLE_LIBTORCH),true)
 	LIBTORCH_LIB := libtorch.$(lib_suffix)
 
   ifneq ($(wildcard $(LIBTORCH_DIR)/lib/$(LIBTORCH_LIB)),)
-    # Enabling parts that have pytorch dependencies
-    libmesh_CXXFLAGS += -DLIBTORCH_ENABLED
-
     # Adding the include directories, we use -isystem to silence the warning coming from
     # libtorch (which would cause errors in the testing phase)
-    libmesh_CXXFLAGS += -isystem $(LIBTORCH_DIR)/include/torch/csrc/api/include
-    libmesh_CXXFLAGS += -isystem $(LIBTORCH_DIR)/include
-		libmesh_CXXFLAGS += -isystem $(LIBTORCH_DIR)/include/c10
+    libmesh_CPPFLAGS += -isystem $(LIBTORCH_DIR)/include/torch/csrc/api/include
+    libmesh_CPPFLAGS += -isystem $(LIBTORCH_DIR)/include
+		libmesh_CPPFLAGS += -isystem $(LIBTORCH_DIR)/include/c10
 
     # Dynamically linking with the available pytorch library
 		ifeq ($(shell uname -s),Darwin)
@@ -109,8 +145,49 @@ ifeq ($(ENABLE_LIBTORCH),true)
     libmesh_LDFLAGS += -L$(LIBTORCH_DIR)/lib -ltorch
 
   else
-    $(error ERROR! Cannot locate any dynamic libraries of libtorch. Make sure to install libtorch (manually or using scripts/setup_libtorch.sh) and to run the configure --with-libtorch before compiling moose!)
+		# No libtorch library found
+    $(eval $(call check_library_should_error,libtorch))
+
+    ifeq ($(libtorch_should_error),true)
+      $(error ERROR! MOOSE was configured with libtorch but we cannot locate any dynamic libraries of libtorch. Make sure to install libtorch using the instructions provided here: https://mooseframework.inl.gov/getting_started/installation/install_libtorch.html !)
+    else
+      $(info Skipping libtorch error check for targets that don't involve compilation!)
+    endif
+
   endif
+endif
+
+#
+# Conditional parts if the user wants to compile MOOSE with mfem
+#
+ifeq ($(ENABLE_MFEM),true)
+	MFEM_LIB := libmfem.$(lib_suffix)
+	MFEM_COMMON_LIB := libmfem-common.$(lib_suffix)
+
+  ifneq ($(and $(wildcard $(MFEM_DIR)/lib/$(MFEM_LIB)), $(wildcard $(MFEM_DIR)/lib/$(MFEM_COMMON_LIB))),)
+    # Adding the include directories
+	  include $(MFEM_DIR)/share/mfem/config.mk
+	  libmesh_CPPFLAGS += $(MFEM_INCFLAGS)
+
+    # Dynamically linking with the available MFEM library
+	  ifeq ($(shell uname -s),Darwin)
+	  	libmesh_LDFLAGS += -Wl,-rpath,$(MFEM_DIR)/lib
+	  else
+	    libmesh_LDFLAGS += -Wl,--copy-dt-needed-entries,-rpath,$(MFEM_DIR)/lib
+	  endif
+
+    libmesh_LDFLAGS += -L$(MFEM_DIR)/lib -lmfem -lmfem-common
+
+  else
+    # No mfem library found
+    $(eval $(call check_library_should_error,mfem))
+
+    ifeq ($(mfem_should_error),true)
+      $(error ERROR! Cannot locate libmfem and libmfem-common. Make sure to install mfem before compiling MOOSE!)
+    else
+      $(info Skipping libmfem error check for targets that don't involve compilation!)
+    endif
+	endif
 endif
 
 #
@@ -135,19 +212,31 @@ endif
 UNAME10 := $(shell uname | cut -c-10)
 ifeq ($(UNAME10), MINGW64_NT)
 	libmesh_LDFLAGS    += -no-undefined
-	pyhit_LIB          := $(HIT_DIR)/hit.pyd
-	pyhit_COMPILEFLAGS := $(shell $(pyconfig) --cflags --ldflags --libs)
+	PYMOD_EXTENSION    := pyd
+	PYMOD_COMPILEFLAGS := $(shell $(pyconfig) --cflags --ldflags --libs)
 else
-	pyhit_LIB          := $(HIT_DIR)/hit.so
-	pyhit_COMPILEFLAGS := -L$(shell $(pyconfig) --prefix)/lib $(shell $(pyconfig) --includes)
+	PYMOD_EXTENSION    := so
+	PYMOD_COMPILEFLAGS := -L$(shell $(pyconfig) --prefix)/lib $(shell $(pyconfig) --includes)
 endif
-pyhit_COMPILEFLAGS += $(wasp_CXXFLAGS) $(wasp_LDFLAGS)
 
 $(pyhit_srcfiles) $(hit_CLI_srcfiles): | prebuild
+
+pyhit_LIB          := $(HIT_DIR)/hit.$(PYMOD_EXTENSION)
+pyhit_COMPILEFLAGS += $(PYMOD_COMPILEFLAGS) $(wasp_CXXFLAGS) $(wasp_LDFLAGS)
+
 hit $(pyhit_LIB) $(hit_CLI): $(pyhit_srcfiles) $(hit_CLI_srcfiles)
-	@echo "Building and linking "$@"..."
-	@bash -c '(cd "$(HIT_DIR)" && $(libmesh_CXX) -I$(HIT_DIR)/include -std=c++17 -w -fPIC -lstdc++ -shared $^ $(pyhit_COMPILEFLAGS) $(DYNAMIC_LOOKUP) -o $(pyhit_LIB))'
+	@echo "Building and linking $(pyhit_LIB)..."
+	@bash -c '(cd "$(HIT_DIR)" && $(libmesh_CXX) $(CXXFLAGS) -I$(HIT_DIR)/include -std=c++17 -w -fPIC -lstdc++ -shared $^ $(pyhit_COMPILEFLAGS) $(DYNAMIC_LOOKUP) -o $(pyhit_LIB))'
 	@bash -c '(cd "$(HIT_DIR)" && $(MAKE))'
+
+capabilities_LIBNAME      := capabilities.$(PYMOD_EXTENSION)
+capabilities_LIB          := $(CAPABILITIES_DIR)/$(capabilities_LIBNAME)
+capabilities_COMPILEFLAGS += $(PYMOD_COMPILEFLAGS) -I$(FRAMEWORK_DIR)/contrib/cpp-peglib/include -I$(FRAMEWORK_DIR)/include/utils
+capabilities_LDFLAGS      := $(DYNAMIC_LOOKUP)
+
+capabilities $(capabilities_LIB) : $(capabilities_srcfiles)
+	@echo "Building and linking $(capabilities_LIB)..."
+	@bash -c '(cd "$(CAPABILITIES_DIR)" && $(libmesh_CXX) -std=c++17 -w -fPIC -lstdc++ -shared $(capabilities_srcfiles) $(capabilities_COMPILEFLAGS) $(capabilities_LDFLAGS) -o $(capabilities_LIB))'
 
 #
 # gtest
@@ -158,6 +247,8 @@ gtest_objects   := $(patsubst %.cc, %.$(no-method-obj-suffix), $(gtest_srcfiles)
 gtest_LIB       := $(gtest_DIR)/libgtest.la
 # dependency files
 gtest_deps      := $(patsubst %.cc, %.$(no-method-obj-suffix).d, $(gtest_srcfiles))
+gtest_INCLUDE := -I$(gtest_DIR)
+
 
 #
 # MooseConfigure
@@ -165,9 +256,11 @@ gtest_deps      := $(patsubst %.cc, %.$(no-method-obj-suffix).d, $(gtest_srcfile
 moose_config := $(FRAMEWORK_DIR)/include/base/MooseConfig.h
 moose_default_config := $(FRAMEWORK_DIR)/include/base/MooseDefaultConfig.h
 
-$(moose_config): | prebuild
+$(moose_config):
 	@echo "Copying default MOOSE configuration to: "$@"..."
 	@cp $(moose_default_config) $(moose_config)
+
+libmesh_CPPFLAGS += -include $(moose_config)
 
 #
 # header symlinks
@@ -175,7 +268,6 @@ $(moose_config): | prebuild
 ifeq ($(MOOSE_HEADER_SYMLINKS),true)
 
 all_header_dir := $(FRAMEWORK_DIR)/build/header_symlinks
-moose_all_header_dir := $(all_header_dir)
 
 define all_header_dir_rule
 $(1): | prebuild
@@ -208,8 +300,8 @@ endef
 $(eval $(call all_header_dir_rule, $(all_header_dir)))
 $(call symlink_rules, $(all_header_dir), $(include_files))
 
-moose_config_symlink := $(moose_all_header_dir)/MooseConfig.h
-$(moose_config_symlink): $(moose_config) | $(moose_all_header_dir) prebuild
+moose_config_symlink := $(all_header_dir)/MooseConfig.h
+$(moose_config_symlink): $(moose_config) | $(all_header_dir) prebuild
 	@echo "Symlinking MOOSE configure "$(moose_config_symlink)
 	@ln -sf $(moose_config) $(moose_config_symlink)
 
@@ -225,7 +317,9 @@ endif
 moose_INC_DIRS += $(shell find $(FRAMEWORK_DIR)/contrib/*/include -type d)
 
 # We filter out the unnecessary include dirs from the contribs
-ignore_contrib_include := $(foreach ex_dir, $(IGNORE_CONTRIB_INC), $(if $(dir $(wildcard $(FRAMEWORK_DIR)/contrib/$(ex_dir)/.)),$(shell find $(FRAMEWORK_DIR)/contrib/$(ex_dir)/include -type d),))
+ignore_contrib_include := $(foreach ex_dir, $(IGNORE_CONTRIB_INC), \
+    $(if $(wildcard $(FRAMEWORK_DIR)/contrib/$(ex_dir)/include), \
+        $(shell find $(FRAMEWORK_DIR)/contrib/$(ex_dir)/include -type d),))
 moose_INC_DIRS := $(filter-out $(ignore_contrib_include), $(moose_INC_DIRS))
 
 moose_INC_DIRS += $(gtest_DIR)
@@ -233,9 +327,6 @@ moose_INC_DIRS += $(HIT_DIR)/include
 moose_INCLUDE  := $(foreach i, $(moose_INC_DIRS), -I$(i))
 
 #libmesh_INCLUDE := $(moose_INCLUDE) $(libmesh_INCLUDE)
-
-# Making a .la object instead.  This is what you make out of .lo objects...
-moose_LIB := $(FRAMEWORK_DIR)/libmoose-$(METHOD).la
 
 moose_LIBS := $(moose_LIB) $(pcre_LIB) $(hit_LIB)
 
@@ -360,7 +451,8 @@ ifeq (x$(moose_HEADER_deps),x)
   moose_HEADER_deps := $(realpath $(moose_GIT_DIR)/HEAD $(moose_GIT_DIR)/index)
 endif
 
-$(moose_revision_header): $(moose_HEADER_deps) | $(moose_all_header_dir)
+.SECONDEXPANSION:
+$(moose_revision_header): $(moose_HEADER_deps) | $$(all_header_dir)
 	@echo "Checking if header needs updating: "$@"..."
 	$(shell REPO_LOCATION="$(FRAMEWORK_DIR)" \
 	        HEADER_FILE="$(moose_revision_header)" \
@@ -371,8 +463,8 @@ $(moose_revision_header): $(moose_HEADER_deps) | $(moose_all_header_dir)
 	@if [ $(.SHELLSTATUS) -ne 0 ]; then \
 	echo "\nFailed to generate MooseRevision.h\n"; exit $(.SHELLSTATUS); \
 	fi
-	@if [ ! -e "$(moose_all_header_dir)/MooseRevision.h" ]; then \
-		ln -sf $(moose_revision_header) $(moose_all_header_dir); \
+	@if [ ! -e "$(all_header_dir)/MooseRevision.h" ]; then \
+		ln -sf $(moose_revision_header) $(all_header_dir); \
 	fi
 
 # libmesh submodule status
@@ -392,50 +484,70 @@ wasp_submodule_status:
 	@if [ x$(wasp_submodule_message) != "x" ]; then printf $(wasp_submodule_message); exit 1; fi
 
 # Pre-make for checking current dependency versions and showing useful warnings
-# if things like conda packages are out of date. The "-" in "@-" means that
-# it is allowed to not exit 0. "::" means that the rule can be appended by
-# applications that require prebuild steps.
-prebuild::
+# if things like conda packages are out of date. The variable is such that
+# rules can use $(prebuild), instead of prebuild, as a prerequisite. In those
+# cases, if this file, moose.mk, is not included, the variable expands to the
+# empty string, establishing no dependency, and keeping the rule valid. The
+# order-only prerequisite $(moose_config), guarantees _some_ configuration file
+# exists prior to execution of any recipe whose rule depends on prebuild. The
+# responsibility to trigger a rebuild on an update of the configuration file,
+# e.g. via the configure command, lies with normal prerequisites for the rules
+# of targets that actually depend on the contents of the configuration file.
+# The "-" in "@-" means that it is allowed to not exit 0. "::" means that
+# the rule can be appended by applications that require prebuild steps.
+prebuild = prebuild
+prebuild:: | $(moose_config)
 	@-python3 $(FRAMEWORK_DIR)/../scripts/premake.py
 
 wasp_submodule_status $(moose_revision_header) $(moose_LIB): | prebuild
-moose: wasp_submodule_status $(moose_revision_header) $(moose_LIB)
+moose: wasp_submodule_status $(moose_revision_header) $(moose_LIB) $(capabilities_LIB)
+
+# Check for support for process substitution, and if supported, we delete a known warning on MacOS from
+# the output because it is printed thousands of times
+CHECK_PROCESS_SUBSTITUTION := $(shell bash -c 'echo hello > >(cat)')
+ifeq ($(CHECK_PROCESS_SUBSTITUTION),hello)
+  SILENCE_SOME_WARNINGS = 1> >(cat >&1) 2> >(grep -v "could not create compact unwind for" >&2)
+endif
 
 # [JWP] With libtool, there is only one link command, it should work whether you are creating
 # shared or static libraries, and it should be portable across Linux and Mac...
 $(pcre_LIB): $(pcre_objects)
 	@echo "Linking Library "$@"..."
-	@$(libmesh_LIBTOOL) --tag=CC $(LIBTOOLFLAGS) --mode=link --quiet \
-	  $(libmesh_CC) $(libmesh_CFLAGS) -o $@ $(pcre_objects) $(libmesh_LDFLAGS) $(libmesh_LIBS) $(EXTERNAL_FLAGS) -rpath $(pcre_DIR)
+	@bash -c '$(libmesh_LIBTOOL) --tag=CC $(LIBTOOLFLAGS) --mode=link --quiet \
+	  $(libmesh_CC) $(libmesh_CFLAGS) -o $@ $(pcre_objects) $(libmesh_LDFLAGS) $(libmesh_LIBS) $(EXTERNAL_FLAGS) -rpath $(pcre_DIR) ${SILENCE_SOME_WARNINGS}'
 	@$(libmesh_LIBTOOL) --mode=install --quiet install -c $(pcre_LIB) $(pcre_DIR)
 
 $(gtest_LIB): $(gtest_objects)
 	@echo "Linking Library "$@"..."
-	@$(libmesh_LIBTOOL) --tag=CC $(LIBTOOLFLAGS) --mode=link --quiet \
-	  $(libmesh_CC) -o $@ $(gtest_objects) $(EXTERNAL_FLAGS) -rpath $(gtest_DIR)
+	@bash -c '$(libmesh_LIBTOOL) --tag=CC $(LIBTOOLFLAGS) --mode=link --quiet \
+	  $(libmesh_CC) -o $@ $(gtest_objects) $(EXTERNAL_FLAGS) -rpath $(gtest_DIR) ${SILENCE_SOME_WARNINGS}'
 	@$(libmesh_LIBTOOL) --mode=install --quiet install -c $(gtest_LIB) $(gtest_DIR)
 
 $(hit_LIB): $(hit_objects)
 	@echo "Linking Library "$@"..."
-	@$(libmesh_LIBTOOL) --tag=CC $(LIBTOOLFLAGS) --mode=link --quiet \
-	  $(libmesh_CXX) $(CXXFLAGS) $(libmesh_CXXFLAGS) -o $@ $(hit_objects) $(libmesh_LDFLAGS) $(libmesh_LIBS) $(EXTERNAL_FLAGS) -rpath $(HIT_DIR)
+	@bash -c '$(libmesh_LIBTOOL) --tag=CC $(LIBTOOLFLAGS) --mode=link --quiet \
+	  $(libmesh_CXX) $(libmesh_CXXFLAGS) -o $@ $(hit_objects) $(LDFLAGS) $(libmesh_LDFLAGS) $(libmesh_LIBS) $(EXTERNAL_FLAGS) -rpath $(HIT_DIR) ${SILENCE_SOME_WARNINGS}'
 	@$(libmesh_LIBTOOL) --mode=install --quiet install -c $(hit_LIB) $(HIT_DIR)
 
-$(moose_LIB): $(moose_objects) $(pcre_LIB) $(gtest_LIB) $(hit_LIB) $(pyhit_LIB)
+ifeq ($(MOOSE_UNITY),true)
+$(moose_LIB): $(moose_objects) $(pcre_LIB) $(gtest_LIB) $(hit_LIB) $(pyhit_LIB) $(moose_revision_header)
+	@echo "Linking Library "$@"..."
+	@bash -c '$(libmesh_LIBTOOL) --tag=CXX $(LIBTOOLFLAGS) --mode=link --quiet \
+	  $(libmesh_CXX) $(libmesh_CXXFLAGS) -o $@ $(moose_objects) $(pcre_LIB) $(png_LIB) $(LDFLAGS) $(libmesh_LDFLAGS) $(libmesh_LIBS) $(EXTERNAL_FLAGS) -rpath $(FRAMEWORK_DIR) ${SILENCE_SOME_WARNINGS}'
+	@$(libmesh_LIBTOOL) --mode=install --quiet install -c $(moose_LIB) $(FRAMEWORK_DIR)
+else
+# We avoid bash -c outside unity build mode because there would be too many arguments and it triggers an error
+$(moose_LIB): $(moose_objects) $(pcre_LIB) $(gtest_LIB) $(hit_LIB) $(pyhit_LIB) $(moose_revision_header)
 	@echo "Linking Library "$@"..."
 	@$(libmesh_LIBTOOL) --tag=CXX $(LIBTOOLFLAGS) --mode=link --quiet \
-	  $(libmesh_CXX) $(CXXFLAGS) $(libmesh_CXXFLAGS) -o $@ $(moose_objects) $(pcre_LIB) $(png_LIB) $(libmesh_LDFLAGS) $(libmesh_LIBS) $(EXTERNAL_FLAGS) -rpath $(FRAMEWORK_DIR)
+	  $(libmesh_CXX) $(libmesh_CXXFLAGS) -o $@ $(moose_objects) $(pcre_LIB) $(png_LIB) $(LDFLAGS) $(libmesh_LDFLAGS) $(libmesh_LIBS) $(EXTERNAL_FLAGS) -rpath $(FRAMEWORK_DIR)
 	@$(libmesh_LIBTOOL) --mode=install --quiet install -c $(moose_LIB) $(FRAMEWORK_DIR)
+endif
 
 ifeq ($(MOOSE_HEADER_SYMLINKS),true)
-
-
 $(moose_objects): $(moose_config_symlink) | moose_header_symlinks
-
 else
-
 $(moose_objects): $(moose_config)
-
 endif
 
 ## Clang static analyzer
@@ -448,6 +560,7 @@ sa: $(moose_analyzer)
 -include $(wildcard $(FRAMEWORK_DIR)/contrib/pcre/src/*.d)
 -include $(wildcard $(FRAMEWORK_DIR)/contrib/gtest/*.d)
 -include $(wildcard $(FRAMEWORK_DIR)/contrib/hit/*.d)
+-include $(wildcard $(FRAMEWORK_DIR)/contrib/capabilities/*.d)
 -include $(wildcard $(FRAMEWORK_DIR)/contrib/pugixml/src/*.d)
 -include $(wildcard $(FRAMEWORK_DIR)/contrib/tinyhttp/src/tinyhttp/*.d)
 -include $(wildcard $(FRAMEWORK_DIR)/contrib/minijson/src/minijson/*.d)
@@ -467,13 +580,13 @@ all: exodiff
 
 # Target-specific Variable Values (See GNU-make manual)
 exodiff: app_INCLUDES := $(exodiff_includes)
-exodiff: libmesh_CXXFLAGS := -std=gnu++11 -O2 -felide-constructors -w
+exodiff: libmesh_CXXFLAGS := -std=c++14 -O2 -felide-constructors -w
 exodiff: $(exodiff_APP)
 $(exodiff_objects): | prebuild
 $(exodiff_APP): $(exodiff_objects)
 	@echo "Linking Executable "$@"..."
-	@$(libmesh_LIBTOOL) --tag=CXX $(LIBTOOLFLAGS) --mode=link --quiet \
-	  $(libmesh_CXX) $(libmesh_CPPFLAGS) $(CXXFLAGS) $(libmesh_CXXFLAGS) $(libmesh_INCLUDE) $(exodiff_objects) -o $@ $(libmesh_LDFLAGS) $(libmesh_LIBS) $(EXTERNAL_FLAGS)
+	@bash -c '$(libmesh_LIBTOOL) --tag=CXX $(LIBTOOLFLAGS) --mode=link --quiet \
+	  $(libmesh_CXX) $(libmesh_CPPFLAGS) $(libmesh_CXXFLAGS) $(libmesh_INCLUDE) $(exodiff_objects) -o $@ $(LDFLAGS) $(libmesh_LDFLAGS) $(libmesh_LIBS) $(EXTERNAL_FLAGS) ${SILENCE_SOME_WARNINGS}'
 
 -include $(wildcard $(exodiff_DIR)/*.d)
 
@@ -483,6 +596,15 @@ share_dir = $(PREFIX)/share
 moose_share_dir = $(share_dir)/moose
 python_install_dir = $(moose_share_dir)/python
 bin_install_dir = $(PREFIX)/bin
+lib_install_suffix = lib/$(APPLICATION_NAME)
+lib_install_dir = $(PREFIX)/$(lib_install_suffix)
+
+libname_framework = $(shell grep "dlname='.*'" $(MOOSE_DIR)/framework/libmoose-$(METHOD).la 2>/dev/null | sed -E "s/dlname='(.*)'/\1/g")
+libpath_framework = $(MOOSE_DIR)/framework/$(libname_framework)
+libname_pcre = $(shell grep "dlname='.*'" $(MOOSE_DIR)/framework/contrib/pcre/libpcre-$(METHOD).la 2>/dev/null | sed -E "s/dlname='(.*)'/\1/g")
+libpath_pcre = $(MOOSE_DIR)/framework/contrib/pcre/$(libname_pcre)
+libname_hit = $(shell grep "dlname='.*'" $(MOOSE_DIR)/framework/contrib/hit/libhit-$(METHOD).la 2>/dev/null | sed -E "s/dlname='(.*)'/\1/g")
+libpath_hit = $(MOOSE_DIR)/framework/contrib/hit/$(libname_hit)
 
 install: all install_all_libs install_bin install_harness install_exodiff install_adreal_monolith install_hit install_data install_testers
 
@@ -502,12 +624,15 @@ install_exodiff: all
 	@mkdir -p $(bin_install_dir)
 	@cp $(MOOSE_DIR)/framework/contrib/exodiff/exodiff $(bin_install_dir)/
 
-install_python:
+install_python: $(pyhit_LIB) $(capabilities_LIB)
 	@echo "Installing python utilities"
 	@rm -rf $(python_install_dir)
 	@mkdir -p $(python_install_dir)
 	@cp -R $(MOOSE_DIR)/python/* $(python_install_dir)/
-	@cp -f $(HIT_DIR)/hit.so $(python_install_dir)/
+	@echo "Installing python library $(pyhit_LIB)"
+	@cp -f $(pyhit_LIB) $(python_install_dir)/
+	@echo "Installing python library $(capabilities_LIB)"
+	@cp -f $(capabilities_LIB) $(python_install_dir)/
 
 install_harness: install_python
 	@echo "Installing TestHarness"
@@ -530,11 +655,11 @@ lib_install_dir = $(PREFIX)/$(lib_install_suffix)
 ifneq (,$(findstring darwin,$(libmesh_HOST)))
   patch_relink = install_name_tool -change $(2) @rpath/$(3) $(1)
 	patch_rpath = install_name_tool -add_rpath $(2) $(1)
-	patch_remove = :
+	remove_rpath = install_name_tool -delete_rpath $(2) $(1)
 else
   patch_relink = :
 	patch_rpath = patchelf --set-rpath $(2):$$(patchelf --print-rpath $(1)) $(1)
-	patch_remove = patchelf --remove-needed $(2) $(1)
+	remove_rpath = :
 endif
 patch_la = $(FRAMEWORK_DIR)/scripts/patch_la.py $(1) $(2)
 # Gets the associated library from a library archive (first argument)
@@ -548,11 +673,11 @@ libpath_pcre = $(MOOSE_DIR)/framework/contrib/pcre/$(libname_pcre)
 #
 # Clean targets
 #
-.PHONY: clean clobber cleanall echo_include echo_library install_make_dir libmesh_submodule_status hit
+.PHONY: clean clobber cleanall echo_include echo_library install_make_dir libmesh_submodule_status hit capabilities compile_commands.json
 
 # Set up app-specific variables for MOOSE, so that it can use the same clean target as the apps
 app_EXEC := $(exodiff_APP)
-app_LIB  := $(moose_LIBS) $(pcre_LIB) $(gtest_LIB) $(hit_LIB) $(pyhit_LIB)
+app_LIB  := $(moose_LIBS) $(gtest_LIB) $(pyhit_LIB)
 app_objects := $(moose_objects) $(exodiff_objects) $(pcre_objects) $(gtest_objects) $(hit_objects)
 app_deps := $(moose_deps) $(exodiff_deps) $(pcre_deps) $(gtest_deps) $(hit_deps)
 
@@ -619,12 +744,12 @@ compile_commands.json:
 ifeq (4.0,$(firstword $(sort $(MAKE_VERSION) 4.0)))
 	$(file > .compile_commands.json,$(CURDIR))
 	$(file >> .compile_commands.json,$(libmesh_CXX))
-	$(file >> .compile_commands.json,$(libmesh_CPPFLAGS) $(CXXFLAGS) $(libmesh_CXXFLAGS) $(app_INCLUDES) $(libmesh_INCLUDE))
+	$(file >> .compile_commands.json,$(libmesh_CPPFLAGS) $(ADDITIONAL_CPPFLAGS) $(CXXFLAGS) $(libmesh_CXXFLAGS) $(app_INCLUDES) $(libmesh_INCLUDE) $(ADDITIONAL_INCLUDES))
 	$(file >> .compile_commands.json,$(compile_commands_all_srcfiles))
 else
 	@echo $(CURDIR) > .compile_commands.json
 	@echo $(libmesh_CXX) >> .compile_commands.json
-	@echo $(libmesh_CPPFLAGS) $(CXXFLAGS) $(libmesh_CXXFLAGS) $(app_INCLUDES) $(libmesh_INCLUDE) >> .compile_commands.json
+	@echo $(libmesh_CPPFLAGS) $(ADDITIONAL_CPPFLAGS) $(CXXFLAGS) $(libmesh_CXXFLAGS) $(app_INCLUDES) $(libmesh_INCLUDE) $(ADDITIONAL_INCLUDES) >> .compile_commands.json
 	@echo $(compile_commands_all_srcfiles) >> .compile_commands.json
 endif
 	@$(FRAMEWORK_DIR)/scripts/compile_commands.py < .compile_commands.json > compile_commands.json

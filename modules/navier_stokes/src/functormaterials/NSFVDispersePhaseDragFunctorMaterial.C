@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -60,7 +60,7 @@ NSFVDispersePhaseDragFunctorMaterial::NSFVDispersePhaseDragFunctorMaterial(
       velocity(1) = (*_v_var)(r, t);
     if (_dim > 2)
       velocity(2) = (*_w_var)(r, t);
-    const auto speed = NS::computeSpeed(velocity);
+    const auto speed = NS::computeSpeed<ADReal>(velocity);
 
     const auto Re_particle =
         _particle_diameter(r, t) * speed * _rho_mixture(r, t) / _mu_mixture(r, t);

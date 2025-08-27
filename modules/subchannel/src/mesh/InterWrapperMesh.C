@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -13,7 +13,6 @@ InputParameters
 InterWrapperMesh::validParams()
 {
   InputParameters params = MooseMesh::validParams();
-  params.set<MooseEnum>("dim") = "3";
   params.addClassDescription("Creates an inter-wrappper mesh container");
   return params;
 }

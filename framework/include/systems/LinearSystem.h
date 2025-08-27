@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -114,6 +114,17 @@ public:
   TagID rightHandSideVectorTag() const { return _rhs_tag; }
   virtual TagID systemMatrixTag() const override { return _system_matrix_tag; }
   ///@}
+
+  /// Fetching the right hand side vector from the libmesh system.
+  NumericVector<Number> & getRightHandSideVector() { return *_linear_implicit_system.rhs; }
+  const NumericVector<Number> & getRightHandSideVector() const
+  {
+    return *_linear_implicit_system.rhs;
+  }
+
+  /// Fetching the system matrix from the libmesh system.
+  SparseMatrix<Number> & getSystemMatrix() { return *_linear_implicit_system.matrix; }
+  const SparseMatrix<Number> & getSystemMatrix() const { return *_linear_implicit_system.matrix; }
 
   /**
    * Compute the Green-Gauss gradients

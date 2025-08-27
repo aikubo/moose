@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -49,7 +49,7 @@ DiffusionPhysicsBase::validParams()
       "compute_diffusive_fluxes_on", {}, "Surfaces to compute the diffusive flux on");
 
   // Preconditioning is implemented so let's use it by default
-  MooseEnum pc_options("default none", "default");
+  MooseEnum pc_options("default defer", "default");
   params.addParam<MooseEnum>(
       "preconditioning", pc_options, "Which preconditioning to use for this Physics");
 
@@ -158,7 +158,9 @@ DiffusionPhysicsBase::addInitialConditions()
   mooseAssert(parameters().isParamSetByUser("initial_condition") ||
                   !parameters().hasDefault("initial_condition"),
               "Should not have a default");
-  if (parameters().isParamSetByUser("initial_condition") && remaining_blocks.size())
+  if (isParamValid("initial_condition") &&
+      shouldCreateIC(
+          _var_name, remaining_blocks, /*ic is a default*/ false, /*error if defined*/ true))
   {
     params.set<VariableName>("variable") = _var_name;
     params.set<FunctionName>("function") = getParam<FunctionName>("initial_condition");
@@ -172,6 +174,8 @@ DiffusionPhysicsBase::addInitialConditionsFromComponents()
 {
   InputParameters params = getFactory().getValidParams("FunctorIC");
 
+  // ICs from components are considered always set by the user, so we do not skip them when
+  // restarting
   for (const auto & [component_name, component_bc_map] : _components_initial_conditions)
   {
     if (!component_bc_map.count(_var_name))

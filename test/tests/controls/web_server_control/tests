@@ -17,7 +17,9 @@
       command_proxy = 'control_reporter.py bool_value'
       required_python_packages = requests
       recover = false
+      restep = false
       detail = 'boolean'
+      valgrind = 'none' # http library is not completely valgrind clean
     []
     [real]
       type = JSONDiff
@@ -29,7 +31,9 @@
       command_proxy = 'control_reporter.py real_value'
       required_python_packages = requests
       recover = false
+      restep = false
       detail = 'double precision number'
+      valgrind = 'none' # http library is not completely valgrind clean
     []
     [int]
       type = JSONDiff
@@ -41,7 +45,9 @@
       command_proxy = 'control_reporter.py int_value'
       required_python_packages = requests
       recover = false
+      restep = false
       detail = 'integer'
+      valgrind = 'none' # http library is not completely valgrind clean
     []
     [string]
       type = JSONDiff
@@ -53,7 +59,9 @@
       command_proxy = 'control_reporter.py string_value'
       required_python_packages = requests
       recover = false
+      restep = false
       detail = 'string'
+      valgrind = 'none' # http library is not completely valgrind clean
     []
     [vec_real]
       type = JSONDiff
@@ -65,7 +73,9 @@
       command_proxy = 'control_reporter.py vec_real_value'
       required_python_packages = requests
       recover = false
+      restep = false
       detail = 'vector of double precision numbers'
+      valgrind = 'none' # http library is not completely valgrind clean
     []
     [vec_int]
       type = JSONDiff
@@ -77,7 +87,9 @@
       command_proxy = 'control_reporter.py vec_int_value'
       required_python_packages = requests
       recover = false
+      restep = false
       detail = 'vector of integers'
+      valgrind = 'none' # http library is not completely valgrind clean
     []
     [vec_string]
       type = JSONDiff
@@ -89,7 +101,22 @@
       command_proxy = 'control_reporter.py vec_string_value'
       required_python_packages = requests
       recover = false
+      restep = false
       detail = 'vector of strings'
+      valgrind = 'none' # http library is not completely valgrind clean
+    []
+    [eigen_matrix]
+      type = JSONDiff
+      input = control_reporter.i
+      jsondiff = 'control_reporter_matrix.json'
+      skip_keys = 'number_of_parts part'
+      cli_args = 'Outputs/json/file_base=control_reporter_matrix
+                  Reporters/test/matrix_value="0 1"'
+      command_proxy = 'control_reporter.py matrix_value'
+      required_python_packages = requests
+      recover = false
+      detail = 'matrix'
+      valgrind = 'none' # http library is not completely valgrind clean
     []
   []
 
@@ -100,7 +127,20 @@
     command_proxy = get_postprocessor.py
     required_python_packages = requests
     recover = false
+    restep = false
     requirement = 'The system shall support retreiving a postprocessor value via a REST API'
+    valgrind = 'none' # http library is not completely valgrind clean
+  []
+
+  [get_reporter]
+    type = JSONDiff
+    input = get_reporter.i
+    jsondiff = get_reporter_out.json
+    command_proxy = get_reporter.py
+    required_python_packages = requests
+    recover = false
+    requirement = 'The system shall support retrieving reporter values via a REST API'
+    valgrind = 'none' # http library is not completely valgrind clean
   []
 
   [connect_port]
@@ -109,7 +149,9 @@
     command_proxy = use_port.py
     required_python_packages = requests
     recover = False
+    restep = false
     requirement = 'The system shall support connecting to a REST API via a port'
+    valgrind = 'none' # http library is not completely valgrind clean
   []
 
   [parallel_consistent]
@@ -121,13 +163,27 @@
     command_proxy = 'control_reporter.py bool_value'
     required_python_packages = requests
     recover = false
+    restep = false
     requirement = 'The system shall support changing controllable parameters via a REST API in a manner that is parallel consistent'
     min_parallel = 2
     max_parallel = 2
+    valgrind = 'none' # http library is not completely valgrind clean
+  []
+
+  [terminate]
+    type = CSVDiff
+    input = get_postprocessor.i
+    csvdiff = get_postprocessor_out.csv
+    command_proxy = 'terminate.py 3'
+    cli_args = 'Executioner/num_steps=100' # Greater than the what is in gold file
+    required_python_packages = requests
+    recover = false
+    requirement = 'The system shall support terminating the simulation at a requested timestep before the simulation is complete.'
+    valgrind = 'none' # http library is not completely valgrind clean
   []
 
   # We cannot run these tests with valgrind because they come from the python script, which will terminate
-  # the MOOSE process early and therefore we won't receieve and of the valgrind summary output
+  # the MOOSE process early and therefore we won't receive and of the valgrind summary output
   [errors]
     requirement = 'The system shall report a reasonable error when interacting with the REST API when'
     [set_controllable_no_exist]
@@ -178,6 +234,35 @@
       detail = 'setting a controllable parameter with a type that does not match'
       valgrind = none
     []
+    [set_controllable_matrix_bad_convert1]
+      type = RunException
+      input = 'control_reporter.i'
+      command_proxy = 'errors.py set_controllable_matrix_bad_convert1'
+      required_python_packages = requests
+      cli_args = 'Reporters/test/matrix_value="0 1"'
+      expect_err = 'The value \'1234\' of type number is not an array'
+      detail = 'setting a matrix controllable parameter that is not an array'
+    []
+    [set_controllable_matrix_bad_convert2]
+      type = RunException
+      input = 'control_reporter.i'
+      command_proxy = 'errors.py set_controllable_matrix_bad_convert2'
+      required_python_packages = requests
+      cli_args = 'Reporters/test/matrix_value="0 1"'
+      expect_err = 'Element 0 of \'[ 1234 ]\' of type number is not an array'
+      match_literal = true
+      detail = 'setting a matrix controllable parameter that is not an array of arrays'
+    []
+    [set_controllable_matrix_jagged]
+      type = RunException
+      input = 'control_reporter.i'
+      command_proxy = 'errors.py set_controllable_matrix_jagged'
+      required_python_packages = requests
+      cli_args = 'Reporters/test/matrix_value="0 1"'
+      expect_err = 'The matrix \'[ [ 11, 12 ], [ 21 ] ]\' is jagged.'
+      match_literal = true
+      detail = 'setting a matrix controllable parameter that is jagged'
+    []
   []
 
   [param_errors]
@@ -187,6 +272,7 @@
       input = 'wait_initial.i'
       expect_err = "You must provide either the parameter 'port' or 'file_socket'"
       detail = 'a parameter was not provided that specifies where the server should listen'
+      valgrind = 'none' # http library is not completely valgrind clean
     []
     [port_and_socket]
       type = RunException
@@ -194,6 +280,7 @@
       cli_args = 'Controls/web_server/port=1234 Controls/web_server/file_socket=foo'
       expect_err = "Cannot provide both 'port' and 'file_socket'"
       detail = 'both a port and a file were specified to listen on'
+      valgrind = 'none' # http library is not completely valgrind clean
     []
   []
 []

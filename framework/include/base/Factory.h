@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -214,7 +214,7 @@ private:
   /// Object name to class name association
   std::map<std::string, std::string> _name_to_class;
 
-  /// Storage for deprecated object experiation dates
+  /// Storage for deprecated object expiration dates
   std::map<std::string, std::time_t> _deprecated_time;
 
   /// Storage for the deprecated objects that have replacements
@@ -312,9 +312,12 @@ Factory::copyConstruct(const T & object)
   static_assert(std::is_base_of_v<MooseObject, T>, "Not a MooseObject");
 
   const auto type = static_cast<const MooseBase &>(object).type();
-  const auto base = object.parameters().getBase();
-  if (!base || (*base != "MooseMesh" && *base != "RelationshipManager"))
-    mooseError("Copy construction of ", type, " objects is not supported.");
+  if (object.hasBase())
+  {
+    const auto & base = object.getBase();
+    if (base != "MooseMesh" && base != "RelationshipManager")
+      mooseError("Copy construction of ", type, " objects is not supported.");
+  }
 
   _currently_constructing.push_back(&object.parameters());
   auto cloned_object = std::make_unique<T>(object);

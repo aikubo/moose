@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -844,6 +844,20 @@ MooseLinearVariableFV<OutputType>::adGradSln() const
 }
 
 template <typename OutputType>
+const ADTemplateVariableCurl<OutputType> &
+MooseLinearVariableFV<OutputType>::adCurlSln() const
+{
+  adError();
+}
+
+template <typename OutputType>
+const ADTemplateVariableCurl<OutputType> &
+MooseLinearVariableFV<OutputType>::adCurlSlnNeighbor() const
+{
+  adError();
+}
+
+template <typename OutputType>
 const MooseArray<ADReal> &
 MooseLinearVariableFV<OutputType>::adDofValues() const
 {
@@ -876,6 +890,13 @@ const dof_id_type &
 MooseLinearVariableFV<OutputType>::nodalDofIndexNeighbor() const
 {
   nodalError();
+}
+
+template <typename OutputType>
+void
+MooseLinearVariableFV<OutputType>::sizeMatrixTagData()
+{
+  _element_data->sizeMatrixTagData();
 }
 
 template class MooseLinearVariableFV<Real>;

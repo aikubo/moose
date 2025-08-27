@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -30,6 +30,9 @@ EMJouleHeatingHeatGeneratedAux::EMJouleHeatingHeatGeneratedAux(const InputParame
     _E_imag(coupledVectorValue("E_imag")),
     _cond(getADMaterialProperty<Real>(getParam<std::string>("conductivity")))
 {
+  mooseDeprecated("This kernel will be deprecated in the near future (10/01/2025) in favor of "
+                  "exclusively using the Heat Transfer module's 'JouleHeatingHeatGeneratedAux' for "
+                  "coupling electromagnetics to heat transfer problems.");
 }
 
 Real

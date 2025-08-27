@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -38,6 +38,11 @@ class Factory;
 class MooseEnumItem;
 class ExecFlagEnum;
 class MooseVariableFieldBase;
+
+namespace hit
+{
+class Node;
+}
 
 void MooseVecView(libMesh::NumericVector<libMesh::Number> & vector);
 void MooseVecView(const libMesh::NumericVector<libMesh::Number> & vector);
@@ -113,14 +118,17 @@ class FEProblemBase;
 using ExecFlagType = MooseEnumItem;
 extern const ExecFlagType EXEC_NONE;
 extern const ExecFlagType EXEC_INITIAL;
+extern const ExecFlagType EXEC_LINEAR_CONVERGENCE;
 extern const ExecFlagType EXEC_LINEAR;
 extern const ExecFlagType EXEC_NONLINEAR_CONVERGENCE;
 extern const ExecFlagType EXEC_NONLINEAR;
 extern const ExecFlagType EXEC_POSTCHECK;
 extern const ExecFlagType EXEC_TIMESTEP_END;
 extern const ExecFlagType EXEC_TIMESTEP_BEGIN;
+extern const ExecFlagType EXEC_MULTIAPP_FIXED_POINT_ITERATION_END;
 extern const ExecFlagType EXEC_MULTIAPP_FIXED_POINT_BEGIN;
 extern const ExecFlagType EXEC_MULTIAPP_FIXED_POINT_END;
+extern const ExecFlagType EXEC_MULTIAPP_FIXED_POINT_CONVERGENCE;
 extern const ExecFlagType EXEC_FINAL;
 extern const ExecFlagType EXEC_FORCED;
 extern const ExecFlagType EXEC_FAILED;
@@ -132,6 +140,9 @@ extern const ExecFlagType EXEC_PRE_MULTIAPP_SETUP;
 extern const ExecFlagType EXEC_TRANSFER;
 extern const ExecFlagType EXEC_PRE_KERNELS;
 extern const ExecFlagType EXEC_ALWAYS;
+#ifdef LIBMESH_ENABLE_AMR
+extern const ExecFlagType EXEC_POST_ADAPTIVITY;
+#endif
 
 namespace Moose
 {
@@ -241,7 +252,6 @@ using libMesh::out;
 
 void registerAll(Factory & f, ActionFactory & af, Syntax & s);
 
-void registerObjects(Factory & factory);
 void registerObjects(Factory & factory, const std::set<std::string> & obj_labels);
 void addActionTypes(Syntax & syntax);
 void registerActions(Syntax & syntax, ActionFactory & action_factory);
@@ -275,6 +285,11 @@ public:
 private:
   MPI_Comm _orig;
 };
+
+/**
+ * Get the prefix to be associated with a hit node for a message
+ */
+std::string hitMessagePrefix(const hit::Node & node);
 
 // MOOSE Requires PETSc to run, this CPP check will cause a compile error if PETSc is not found
 #ifndef LIBMESH_HAVE_PETSC

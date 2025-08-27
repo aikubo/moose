@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -78,7 +78,8 @@ INSFVWallFunctionBC::computeStrongResidual()
 
   // Compute the friction velocity and the wall shear stress
   const auto rho = _rho(makeElemArg(&elem), state);
-  ADReal u_star = NS::findUStar(_mu(makeElemArg(&elem), state), rho, parallel_speed, dist.value());
+  ADReal u_star =
+      NS::findUStar<ADReal>(_mu(makeElemArg(&elem), state), rho, parallel_speed, dist.value());
   ADReal tau = u_star * u_star * rho;
   _a *= tau;
 

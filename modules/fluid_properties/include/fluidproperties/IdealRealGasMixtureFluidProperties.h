@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -47,8 +47,6 @@ class SinglePhaseFluidProperties;
 
 /**
  * Class for fluid properties of an arbitrary vapor mixture
- *
- *
  */
 class IdealRealGasMixtureFluidProperties : public VaporMixtureFluidProperties, public NaNInterface
 {

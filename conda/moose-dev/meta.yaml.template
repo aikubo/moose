@@ -18,16 +18,17 @@ build:
   script_env:
     - REQUESTS_CA_BUNDLE
     - SSL_CERT_FILE
+    - CURL_CA_BUNDLE
+    - NODE_EXTRA_CA_CERTS
 requirements:
   run:
     - {{ mpi }}
     - {{ moose_tools }}
     - {{ moose_libmesh }}
     - {{ moose_wasp }}
-    - {{ moose_peacock }}
 
 about:
-  home: https://mooseframework.org/
+  home: https://mooseframework.inl.gov/
   license: LGPL 2.1
   summary: >
     A simple package which installs all necessary Conda packages for MOOSE based development.

@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -17,6 +17,7 @@
 #include "SIMPLE.h"
 #include "PetscVectorReader.h"
 #include "LinearSystem.h"
+#include "LinearFVBoundaryCondition.h"
 
 // libMesh includes
 #include "libmesh/mesh_base.h"
@@ -124,7 +125,7 @@ RhieChowMassFlux::linkMomentumPressureSystems(
     _momentum_implicit_systems.push_back(dynamic_cast<LinearImplicitSystem *>(&system->system()));
   }
 
-  setupCellVolumes();
+  setupMeshInformation();
 }
 
 void
@@ -133,7 +134,7 @@ RhieChowMassFlux::meshChanged()
   _HbyA_flux.clear();
   _Ainv.clear();
   _face_mass_flux.clear();
-  setupCellVolumes();
+  setupMeshInformation();
 }
 
 void
@@ -160,17 +161,27 @@ RhieChowMassFlux::initialSetup()
 }
 
 void
-RhieChowMassFlux::setupCellVolumes()
+RhieChowMassFlux::setupMeshInformation()
 {
   // We cache the cell volumes into a petsc vector for corrections here so we can use
   // the optimized petsc operations for the normalization
   _cell_volumes = _pressure_system->currentSolution()->zero_clone();
   for (const auto & elem_info : _fe_problem.mesh().elemInfoVector())
-  {
-    const auto elem_dof = elem_info->dofIndices()[_global_pressure_system_number][0];
-    _cell_volumes->set(elem_dof, elem_info->volume() * elem_info->coordFactor());
-  }
+    // We have to check this because the variable might not be defined on the given
+    // block
+    if (hasBlocks(elem_info->subdomain_id()))
+    {
+      const auto elem_dof = elem_info->dofIndices()[_global_pressure_system_number][0];
+      _cell_volumes->set(elem_dof, elem_info->volume() * elem_info->coordFactor());
+    }
+
   _cell_volumes->close();
+
+  _flow_face_info.clear();
+  for (auto & fi : _fe_problem.mesh().faceInfo())
+    if (hasBlocks(fi->elemPtr()->subdomain_id()) ||
+        (fi->neighborPtr() && hasBlocks(fi->neighborPtr()->subdomain_id())))
+      _flow_face_info.push_back(fi);
 }
 
 void
@@ -192,7 +203,7 @@ RhieChowMassFlux::initFaceMassFlux()
 
   // We loop through the faces and compute the resulting face fluxes from the
   // initial conditions for velocity
-  for (auto & fi : _fe_problem.mesh().faceInfo())
+  for (auto & fi : _flow_face_info)
   {
     RealVectorValue density_times_velocity;
 
@@ -216,16 +227,18 @@ RhieChowMassFlux::initFaceMassFlux()
     // On the boundary, we just take the boundary values
     else
     {
-      const Elem * const boundary_elem =
-          hasBlocks(fi->elemPtr()->subdomain_id()) ? fi->elemPtr() : fi->neighborPtr();
+      const bool elem_is_fluid = hasBlocks(fi->elemPtr()->subdomain_id());
+      const Elem * const boundary_elem = elem_is_fluid ? fi->elemPtr() : fi->neighborPtr();
 
+      // We need this multiplier in case the face is an internal face and
+      const Real boundary_normal_multiplier = elem_is_fluid ? 1.0 : -1.0;
       const Moose::FaceArg boundary_face{
           fi, Moose::FV::LimiterType::CentralDifference, true, false, boundary_elem, nullptr};
 
       const Real face_rho = _rho(boundary_face, time_arg);
       for (const auto dim_i : index_range(_vel))
-        density_times_velocity(dim_i) =
-            face_rho * raw_value((*_vel[dim_i])(boundary_face, time_arg));
+        density_times_velocity(dim_i) = boundary_normal_multiplier * face_rho *
+                                        raw_value((*_vel[dim_i])(boundary_face, time_arg));
     }
 
     _face_mass_flux[fi->id()] = density_times_velocity * fi->normal();
@@ -280,7 +293,7 @@ RhieChowMassFlux::computeFaceMassFlux()
 
   // We loop through the faces and compute the face fluxes using the pressure gradient
   // and the momentum matrix/right hand side
-  for (auto & fi : _fe_problem.mesh().faceInfo())
+  for (auto & fi : _flow_face_info)
   {
     // Making sure the kernel knows which face we are on
     _p_diffusion_kernel->setupFaceData(fi);
@@ -318,6 +331,9 @@ RhieChowMassFlux::computeFaceMassFlux()
     else if (auto * bc_pointer = _p->getBoundaryCondition(*fi->boundaryIDs().begin()))
     {
       mooseAssert(fi->boundaryIDs().size() == 1, "We should only have one boundary on every face.");
+
+      bc_pointer->setupFaceData(
+          fi, fi->faceType(std::make_pair(_p->number(), _global_pressure_system_number)));
 
       const ElemInfo & elem_info =
           hasBlocks(fi->elemPtr()->subdomain_id()) ? *fi->elemInfo() : *fi->neighborInfo();
@@ -388,7 +404,7 @@ RhieChowMassFlux::populateCouplingFunctors(
     ainv_reader.emplace_back(*raw_Ainv[dim_i]);
 
   // We loop through the faces and populate the coupling fields (face H/A and 1/H)
-  for (auto & fi : _fe_problem.mesh().faceInfo())
+  for (auto & fi : _flow_face_info)
   {
     Real face_rho = 0;
     RealVectorValue face_hbya;
@@ -430,8 +446,12 @@ RhieChowMassFlux::populateCouplingFunctors(
     }
     else
     {
-      const ElemInfo & elem_info =
-          hasBlocks(fi->elemPtr()->subdomain_id()) ? *fi->elemInfo() : *fi->neighborInfo();
+      const bool elem_is_fluid = hasBlocks(fi->elemPtr()->subdomain_id());
+
+      // We need this multiplier in case the face is an internal face and
+      const Real boundary_normal_multiplier = elem_is_fluid ? 1.0 : -1.0;
+
+      const ElemInfo & elem_info = elem_is_fluid ? *fi->elemInfo() : *fi->neighborInfo();
       const auto elem_dof = elem_info.dofIndices()[_global_momentum_system_numbers[0]][0];
 
       // If it is a Dirichlet BC, we use the dirichlet value the make sure the face flux
@@ -444,7 +464,8 @@ RhieChowMassFlux::populateCouplingFunctors(
 
         for (const auto dim_i : make_range(_dim))
           face_hbya(dim_i) =
-              -MetaPhysicL::raw_value((*_vel[dim_i])(boundary_face, Moose::currentState()));
+              -boundary_normal_multiplier *
+              MetaPhysicL::raw_value((*_vel[dim_i])(boundary_face, Moose::currentState()));
       }
       // Otherwise we just do a one-term expansion (so we just use the element value)
       else
@@ -453,7 +474,7 @@ RhieChowMassFlux::populateCouplingFunctors(
 
         face_rho = _rho(makeElemArg(elem_info.elem()), time_arg);
         for (const auto dim_i : make_range(_dim))
-          face_hbya(dim_i) = hbya_reader[dim_i](elem_dof);
+          face_hbya(dim_i) = boundary_normal_multiplier * hbya_reader[dim_i](elem_dof);
       }
 
       // We just do a one-term expansion for 1/A no matter what

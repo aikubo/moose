@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -21,6 +21,10 @@ QuadSubChannelNormalSliceValues::validParams()
   params.addRequiredParam<Real>("height", "Axial location of normal slice [m]");
   params.addClassDescription("Prints out a user selected value at a user selected axial height in "
                              "a matrix format to be used for post-processing");
+  params.suppressParameter<bool>("append_date");
+  params.suppressParameter<std::string>("append_date_format");
+  params.suppressParameter<unsigned int>("padding");
+  params.suppressParameter<std::vector<std::string>>("output_if_base_contains");
   return params;
 }
 

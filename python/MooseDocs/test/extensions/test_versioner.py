@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #* This file is part of the MOOSE framework
-#* https://www.mooseframework.org
+#* https://mooseframework.inl.gov
 #*
 #* All rights reserved, see COPYRIGHT for full restrictions
 #* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -24,6 +24,7 @@ class TestTemplate(MooseDocsTestCase):
     EXTENSIONS = [core, command, versioner]
 
     def setUp(self):
+      super().setUp()
       self.packages = Versioner().get_packages('HEAD')
 
     def setupExtension(self, ext):

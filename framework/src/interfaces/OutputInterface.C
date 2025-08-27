@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -33,7 +33,7 @@ OutputInterface::validParams()
 }
 
 OutputInterface::OutputInterface(const InputParameters & parameters, bool build_list)
-  : _oi_moose_app(*parameters.getCheckedPointerParam<MooseApp *>("_moose_app")),
+  : _oi_moose_app(*parameters.getCheckedPointerParam<MooseApp *>(MooseBase::app_param)),
     _oi_output_warehouse(_oi_moose_app.getOutputWarehouse()),
     _oi_outputs(parameters.get<std::vector<OutputName>>("outputs").begin(),
                 parameters.get<std::vector<OutputName>>("outputs").end())
@@ -52,7 +52,7 @@ OutputInterface::OutputInterface(const InputParameters & parameters, bool build_
   if (build_list)
   {
     std::set<std::string> names_set;
-    names_set.insert(parameters.get<std::string>("_object_name"));
+    names_set.insert(parameters.getObjectName());
     buildOutputHideVariableList(names_set);
   }
 }

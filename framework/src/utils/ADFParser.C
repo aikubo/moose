@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -50,8 +50,10 @@ ADFParser::JITCompile()
           JITCompileHelper("ADReal", fopenmp, "#include \"" + include_path + "\"\n", type_hash);
     else
       // otherwise use the compiled in location from the source tree
-      result = JITCompileHelper(
-          "ADReal", fopenmp + " " + ADFPARSER_INCLUDES, "#include \"ADReal.h\"\n", type_hash);
+      result = JITCompileHelper("ADReal",
+                                fopenmp + " " + ADFPARSER_INCLUDES,
+                                "#include \"MooseConfig.h\"\n#include \"ADReal.h\"\n",
+                                type_hash);
   }
 
   if (!result)

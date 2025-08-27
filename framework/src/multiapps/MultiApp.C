@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -125,6 +125,12 @@ MultiApp::validParams()
 
   // Set the default execution time
   params.set<ExecFlagEnum>("execute_on", true) = EXEC_TIMESTEP_BEGIN;
+  // Add the POST_ADAPTIVITY execution flag.
+#ifdef LIBMESH_ENABLE_AMR
+  ExecFlagEnum & exec_enum = params.set<ExecFlagEnum>("execute_on");
+  exec_enum.addAvailableFlags(EXEC_POST_ADAPTIVITY);
+  params.setDocString("execute_on", exec_enum.getDocString());
+#endif
 
   params.addParam<processor_id_type>("max_procs_per_app",
                                      std::numeric_limits<processor_id_type>::max(),
@@ -240,7 +246,6 @@ MultiApp::validParams()
   params.addParam<bool>(
       "clone_parent_mesh", false, "True to clone parent app mesh and use it for this MultiApp.");
 
-  params.addPrivateParam<std::shared_ptr<CommandLine>>("_command_line");
   params.addPrivateParam<bool>("use_positions", true);
   params.declareControllable("enable");
   params.declareControllable("cli_args", {EXEC_PRE_MULTIAPP_SETUP});
@@ -475,9 +480,10 @@ MultiApp::readCommandLineArguments()
         MooseUtils::checkFileReadable(cli_args_file);
 
         std::ifstream is(cli_args_file.c_str());
-        std::copy(std::istream_iterator<std::string>(is),
-                  std::istream_iterator<std::string>(),
-                  std::back_inserter(cli_args));
+        // Read by line rather than space separated like the cli_args parameter
+        std::string line;
+        while (std::getline(is, line))
+          cli_args.push_back(line);
 
         // We do not allow empty files
         if (!cli_args.size())
@@ -656,6 +662,9 @@ MultiApp::preTransfer(Real /*dt*/, Real target_time)
     timestep_tol =
         dynamic_cast<TransientBase *>(_fe_problem.getMooseApp().getExecutioner())->timestepTol();
 
+  // Determination on whether we need to backup the app due to changes below
+  bool backup_apps = false;
+
   // First, see if any Apps need to be reset
   for (unsigned int i = 0; i < _reset_times.size(); i++)
   {
@@ -690,6 +699,9 @@ MultiApp::preTransfer(Real /*dt*/, Real target_time)
         if (target_time + timestep_tol >= _reset_times[j])
           _reset_happened[j] = true;
 
+      // Backup in case the next solve fails
+      backup_apps = true;
+
       break;
     }
   }
@@ -700,7 +712,13 @@ MultiApp::preTransfer(Real /*dt*/, Real target_time)
     _move_happened = true;
     for (unsigned int i = 0; i < _move_apps.size(); i++)
       moveApp(_move_apps[i], _move_positions[i]);
+
+    // Backup in case the next solve fails
+    backup_apps = true;
   }
+
+  if (backup_apps)
+    backup();
 }
 
 Executioner *
@@ -772,12 +790,17 @@ MultiApp::restore(bool force)
 
       for (unsigned int i = 0; i < _my_num_apps; i++)
       {
-        _end_solutions[i] = _apps[i]
-                                ->getExecutioner()
-                                ->feProblem()
-                                .getNonlinearSystemBase(/*nl_sys=*/0)
-                                .solution()
-                                .clone();
+        _end_solutions[i].resize(_apps[i]->getExecutioner()->feProblem().numSolverSystems());
+        for (unsigned int j = 0; j < _apps[i]->getExecutioner()->feProblem().numSolverSystems();
+             j++)
+        {
+          _end_solutions[i][j] = _apps[i]
+                                     ->getExecutioner()
+                                     ->feProblem()
+                                     .getSolverSystem(/*solver_sys=*/j)
+                                     .solution()
+                                     .clone();
+        }
         auto & sub_multiapps =
             _apps[i]->getExecutioner()->feProblem().getMultiAppWarehouse().getObjects();
 
@@ -816,11 +839,15 @@ MultiApp::restore(bool force)
     {
       for (unsigned int i = 0; i < _my_num_apps; i++)
       {
-        _apps[i]->getExecutioner()->feProblem().getNonlinearSystemBase(/*nl_sys=*/0).solution() =
-            *_end_solutions[i];
+        for (unsigned int j = 0; j < _apps[i]->getExecutioner()->feProblem().numSolverSystems();
+             j++)
+        {
+          _apps[i]->getExecutioner()->feProblem().getSolverSystem(/*solver_sys=*/j).solution() =
+              *_end_solutions[i][j];
 
-        // We need to synchronize solution so that local_solution has the right values
-        _apps[i]->getExecutioner()->feProblem().getNonlinearSystemBase(/*nl_sys=*/0).update();
+          // We need to synchronize solution so that local_solution has the right values
+          _apps[i]->getExecutioner()->feProblem().getSolverSystem(/*solver_sys=*/j).update();
+        }
       }
 
       _end_solutions.clear();
@@ -839,6 +866,16 @@ MultiApp::restore(bool force)
 
       _end_aux_solutions.clear();
     }
+
+    // Make sure the displaced mesh on the multiapp is up-to-date with displacement variables
+    for (const auto & app_ptr : _apps)
+      if (app_ptr->feProblem().getDisplacedProblem())
+        app_ptr->feProblem().getDisplacedProblem()->updateMesh();
+
+    // If we are restoring due to a failed solve, make sure reset the solved state in the sub-apps
+    if (!getMooseApp().getExecutioner()->lastSolveConverged())
+      for (auto & app_ptr : _apps)
+        app_ptr->getExecutioner()->fixedPointSolve().clearFixedPointStatus();
   }
   else
   {
@@ -1097,6 +1134,10 @@ MultiApp::parentOutputPositionChanged()
 void
 MultiApp::createApp(unsigned int i, Real start_time)
 {
+  // Delete the old app if we're resetting
+  if (_apps[i])
+    _apps[i].reset();
+
   // Define the app name
   const std::string multiapp_name = getMultiAppName(name(), _first_local_app + i, _total_num_apps);
   std::string full_name;
@@ -1120,7 +1161,6 @@ MultiApp::createApp(unsigned int i, Real start_time)
   // as used within the parent app (_app)
   auto app_cli = _app.commandLine()->initSubAppCommandLine(name(), multiapp_name, input_cli_args);
   app_cli->parse();
-  app_params.set<std::shared_ptr<CommandLine>>("_command_line") = std::move(app_cli);
 
   if (_fe_problem.verboseMultiApps())
     _console << COLOR_CYAN << "Creating MultiApp " << name() << " of type " << _app_type
@@ -1129,12 +1169,19 @@ MultiApp::createApp(unsigned int i, Real start_time)
              << COLOR_DEFAULT << std::endl;
   app_params.set<unsigned int>("_multiapp_level") = _app.multiAppLevel() + 1;
   app_params.set<unsigned int>("_multiapp_number") = _first_local_app + i;
+  app_params.set<const MooseMesh *>("_master_mesh") = &_fe_problem.mesh();
+#ifdef MOOSE_MFEM_ENABLED
+  app_params.set<std::shared_ptr<mfem::Device>>("_mfem_device") =
+      _app.getMFEMDevice(Moose::PassKey<MultiApp>());
+  const auto & mfem_device_set = _app.getMFEMDevices(Moose::PassKey<MultiApp>());
+  app_params.set<std::set<std::string>>("_mfem_devices") = mfem_device_set;
+#endif
   if (getParam<bool>("clone_master_mesh") || getParam<bool>("clone_parent_mesh"))
   {
     if (_fe_problem.verboseMultiApps())
       _console << COLOR_CYAN << "Cloned parent app mesh will be used for MultiApp " << name()
                << COLOR_DEFAULT << std::endl;
-    app_params.set<const MooseMesh *>("_master_mesh") = &_fe_problem.mesh();
+    app_params.set<bool>("_use_master_mesh") = true;
     auto displaced_problem = _fe_problem.getDisplacedProblem();
     if (displaced_problem)
       app_params.set<const MooseMesh *>("_master_displaced_mesh") = &displaced_problem->mesh();
@@ -1146,32 +1193,31 @@ MultiApp::createApp(unsigned int i, Real start_time)
 
   // create new parser tree for the application and parse
   auto parser = std::make_unique<Parser>(input_file);
+  parser->setCommandLineParams(app_cli->buildHitParams());
+  parser->parse();
 
-  if (input_file.size())
-  {
-    parser->parse();
-    const auto & app_type = parser->getAppType();
-    if (app_type.empty() && _app_type.empty())
-      mooseWarning("The application type is not specified for ",
-                   full_name,
-                   ". Please use [Application] block to specify the application type.");
-    if (!app_type.empty() && app_type != _app_type &&
-        !AppFactory::instance().isRegistered(app_type))
-      mooseError("In the ",
+  // Checks on app type
+  const auto & app_type = parser->getAppType();
+  if (app_type.empty() && _app_type.empty())
+    mooseWarning("The application type is not specified for ",
                  full_name,
-                 ", '",
-                 app_type,
-                 "' is not a registered application. The registered application is named: '",
-                 _app_type,
-                 "'. Please double check the [Application] block to make sure the correct "
-                 "application is provided. \n");
-  }
+                 ". Please use [Application] block to specify the application type.");
+  if (!app_type.empty() && app_type != _app_type && !AppFactory::instance().isRegistered(app_type))
+    mooseError("In the ",
+               full_name,
+               ", '",
+               app_type,
+               "' is not a registered application. The registered application is named: '",
+               _app_type,
+               "'. Please double check the [Application] block to make sure the correct "
+               "application is provided. \n");
 
   if (parser->getAppType().empty())
     parser->setAppType(_app_type);
 
   app_params.set<std::shared_ptr<Parser>>("_parser") = std::move(parser);
-  _apps[i] = AppFactory::instance().createShared(_app_type, full_name, app_params, _my_comm);
+  app_params.set<std::shared_ptr<CommandLine>>("_command_line") = std::move(app_cli);
+  _apps[i] = AppFactory::instance().create(_app_type, full_name, app_params, _my_comm);
   auto & app = _apps[i];
 
   app->setGlobalTimeOffset(start_time);

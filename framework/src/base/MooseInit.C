@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -21,6 +21,10 @@
 
 #ifdef LIBMESH_HAVE_OPENMP
 #include <omp.h>
+#endif
+
+#ifdef MOOSE_LIBTORCH_ENABLED
+#include <ATen/Parallel.h>
 #endif
 
 #include <unistd.h>
@@ -47,6 +51,11 @@ MooseInit::MooseInit(int argc, char * argv[], MPI_Comm COMM_WORLD_IN)
 // Set the number of OpenMP threads to the same as the number of threads libMesh is going to use
 #ifdef LIBMESH_HAVE_OPENMP
   omp_set_num_threads(libMesh::n_threads());
+#endif
+
+#ifdef MOOSE_LIBTORCH_ENABLED
+  at::set_num_threads(libMesh::n_threads());
+  at::set_num_interop_threads(libMesh::n_threads());
 #endif
 
   ParallelUniqueId::initialize();

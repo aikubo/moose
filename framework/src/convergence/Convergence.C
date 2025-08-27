@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -27,6 +27,10 @@ Convergence::validParams()
       "Enable printing of additional information, including convergence and divergence reasons.");
 
   params.registerBase("Convergence");
+
+  // This parameter is present because of SetupInterface, which is a requirement
+  // of MooseObjectWarehouse, but it should not be used.
+  params.suppressParameter<ExecFlagEnum>("execute_on");
 
   return params;
 }

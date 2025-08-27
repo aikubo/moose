@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -108,9 +108,6 @@ public:
   static void registerAll(Factory & f, ActionFactory & af, Syntax & s);
   template <typename T>
   static void registerAllObjects(Factory & f, ActionFactory & af, Syntax & s);
-  static void registerObjects(Factory & factory);
-  static void associateSyntax(Syntax & syntax, ActionFactory & action_factory);
-  static void registerExecFlags(Factory & factory);
 };
 
 template <typename T>

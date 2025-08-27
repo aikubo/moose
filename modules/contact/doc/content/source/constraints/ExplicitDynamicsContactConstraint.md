@@ -4,10 +4,9 @@
 
 This object implements node-face constraints for the enforcement of normal
 mechanical contact in explicit dynamics. Surrogate balance-momentum equations are
-solved at each node on the secondary surface using density and wave speed
-material properties and the velocities of the two surfaces in contact.
+solved at each node on the secondary surface.
 
-This method MUST be used with the [DirectCentralDifference](source/timeintegrators/DirectCentralDifference.md) time integrator found in the Solid Mechanics module.
+This method MUST be used with the [ExplicitMixedOrder](source/timeintegrators/ExplicitMixedOrder.md) time integrator found in the Solid Mechanics module.
 
 Following the work of [!citep](heinstein2000contact), the contact is constrained as such,
 
@@ -35,8 +34,10 @@ $\lambda_n$ is calculated at each node as a function of the wave speed and densi
 \end{equation}
 
 where the subscript $_q$ is a nodal index. With this formulation, the constraint force will be calculated within a few iterations.
-<!-- For relevant equations, see [!citep](heinstein2000contact), in particular,
-Equations (15), (21), (26) and (29). -->
+!!!
+For relevant equations, see [!citep](heinstein2000contact), in particular,
+Equations (15), (21), (26) and (29).
+!!!
 
 !syntax parameters /Constraints/ExplicitDynamicsContactConstraint
 

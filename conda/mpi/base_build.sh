@@ -12,6 +12,7 @@ function baked_flags()
     # support ZSH initializations
     if setopt &>/dev/null; then
         setopt local_options BASH_REMATCH
+        setopt rematchpcre
     fi
 
     # flags that were set during the build process
@@ -45,7 +46,8 @@ function baked_flags()
 '-DNDEBUG' \
 '-O2' \
 '-Wl,-dead_strip_dylibs' \
-'-fno-stack-protector')
+'-fno-stack-protector' \
+'-ld_classic')
     fi
 
     # Remove any orphaned -Wl, flags (append last. Do not modify this line)
@@ -60,6 +62,14 @@ function baked_flags()
         b_LDFLAGS=\${b_LDFLAGS//\${strip_flag}/}
     done
 
+    # Remove orphaned -Wl, flags
+    # Note we cannot use variable replacement here as it will not work with spaces in zsh
+    b_CXXFLAGS=$(echo "\$b_CXXFLAGS" | sed 's/-Wl,[[:space:]]//g')
+    b_CPPFLAGS=$(echo "\$b_CPPFLAGS" | sed 's/-Wl,[[:space:]]//g')
+    b_CFLAGS=$(echo "\$b_CFLAGS" | sed 's/-Wl,[[:space:]]//g')
+    b_FFLAGS=$(echo "\$b_FFLAGS" | sed 's/-Wl,[[:space:]]//g')
+    b_LDFLAGS=$(echo "\$b_LDFLAGS" | sed 's/-Wl,[[:space:]]//g')
+
     # append necessary std c library
     export CXXFLAGS="\${b_CXXFLAGS} -std=c++17"
     export CPPFLAGS=\${b_CPPFLAGS}
@@ -69,7 +79,7 @@ function baked_flags()
     # specific OS linker flags
     LDFLAGS=\${b_LDFLAGS}
     if [[ "\$(uname)" == 'Darwin' ]]; then
-        LDFLAGS+=" -Wl,-ld_classic -Wl,-commons,use_dylibs"
+        LDFLAGS+=" -Wl,-ld64 -Wl,-commons,use_dylibs"
     fi
     export LDFLAGS
 }

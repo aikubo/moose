@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -212,8 +212,8 @@ JsonSyntaxTree::addParameters(const std::string & parent,
   }
   else if (params)
   {
-    if (params->isParamValid("_moose_base"))
-      json["moose_base"] = params->get<std::string>("_moose_base");
+    if (params->hasBase())
+      json["moose_base"] = params->getBase();
 
     json["parameters"] = all_params;
     json["syntax_path"] = path;
@@ -221,7 +221,7 @@ JsonSyntaxTree::addParameters(const std::string & parent,
     json["description"] = params->getClassDescription();
     // We do this for ActionComponents which are registered as Actions but
     // dumped to the syntax tree as Objects
-    if (params->isParamValid("_moose_base") && json["moose_base"] == "Action")
+    if (params->hasBase() && json["moose_base"] == "Action")
     {
       auto label_pair = getActionLabel(classname);
       json["label"] = label_pair.first;

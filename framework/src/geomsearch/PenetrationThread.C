@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -1670,7 +1670,7 @@ PenetrationThread::createInfoForElem(std::vector<PenetrationInfo *> & thisElemIn
     if (already_have_info_this_side)
       break;
 
-    const Elem * side = (elem->build_side_ptr(sides[i], false)).release();
+    const Elem * side = (elem->build_side_ptr(sides[i])).release();
 
     // Only continue with creating info for this side if the side contains
     // all of the nodes in nodes_that_must_be_on_side

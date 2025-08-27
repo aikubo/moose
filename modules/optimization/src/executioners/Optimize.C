@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -40,7 +40,7 @@ Optimize::execute()
 
   _problem.timestepSetup();
 
-  _optim_solve.solve();
+  _last_solve_converged = _optim_solve.solve();
 
   // need to keep _time in sync with _time_step to get correct output
   _time = _time_step;

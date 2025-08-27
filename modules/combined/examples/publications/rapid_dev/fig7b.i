@@ -14,9 +14,6 @@
   xmin = 0
   xmax = 100
   second_order = true
-[]
-
-[Problem]
   coord_type = RSPHERICAL
 []
 
@@ -236,6 +233,7 @@
     f_name = Fe
     args = 'eta'
     output_properties = Fe
+    outputs = 'all'
     derivative_order = 2
   [../]
 

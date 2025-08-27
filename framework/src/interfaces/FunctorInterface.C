@@ -1,5 +1,5 @@
 //* This file is part of the MOOSE framework
-//* https://www.mooseframework.org
+//* https://mooseframework.inl.gov
 //*
 //* All rights reserved, see COPYRIGHT for full restrictions
 //* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -18,7 +18,7 @@ FunctorInterface::validParams()
 
 FunctorInterface::FunctorInterface(const MooseObject * const moose_object)
   : _fi_params(moose_object->parameters()),
-    _fi_name(_fi_params.get<std::string>("_object_name")),
+    _fi_name(moose_object->name()),
     _fi_subproblem(_fi_params.get<SubProblem *>("_subproblem")),
     _fi_tid(_fi_params.get<THREAD_ID>("_tid"))
 {

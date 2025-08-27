@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #* This file is part of the MOOSE framework
-#* https://www.mooseframework.org
+#* https://mooseframework.inl.gov
 #*
 #* All rights reserved, see COPYRIGHT for full restrictions
 #* https://github.com/idaholab/moose/blob/master/COPYRIGHT
@@ -112,6 +112,7 @@ gold_apptainer_suffix = '-openmpi'
 gold_apptainer_arch = 'x86_64'
 gold_apptainer_env = {'TAG': gold_apptainer_tag,
                       'VERSION': gold_apptainer_tag,
+                      'MOOSE_VERSION': 'UNUSED',
                       'LIBRARY': gold_apptainer_library,
                       'NAME': f'{gold_apptainer_library}{gold_apptainer_suffix}-{gold_apptainer_arch}',
                       'NAME_SUMMARY': f'{gold_apptainer_library}{gold_apptainer_suffix}-{gold_apptainer_arch}:{gold_apptainer_tag}'}
