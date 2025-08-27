@@ -7,6 +7,7 @@
 #*
 #* Licensed under LGPL 2.1, please see LICENSE for details
 #* https://www.gnu.org/licenses/lgpl-2.1.html
+set -ex
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
@@ -49,11 +50,9 @@ if [[ -n "${FAST}"  ]] ; then
 else
   if [ -z "$SKIP_SUBMODULE_UPDATE" ]; then
     cd $MOOSE_DIR
-    git -C "${WASP_SRC_DIR}" submodule update --init --recursive
-    if [[ $? -ne 0 ]] ; then
-      echo "Error: git submodule update failed to complete successfully"
-      mkdir -p "${WASP_SRC_DIR}"
-      exit 1
+    git_dir=`git rev-parse --show-cdup 2>/dev/null`
+    if [[ $? -eq 0 ]] && [ -z "$SKIP" ] && [["x$git_dir" == "x" ]]; then
+      git submodule update --init --recursive "${WASP_SRC_DIR}"
     fi
   fi
 
