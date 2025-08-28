@@ -8,6 +8,7 @@
 #* Licensed under LGPL 2.1, please see LICENSE for details
 #* https://www.gnu.org/licenses/lgpl-2.1.html
 set -ex
+echo "[DEBUG] USING AIKUBO FIX"
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
@@ -49,9 +50,11 @@ if [[ -n "${FAST}"  ]] ; then
 # If we are not going fast then update WASP, remove build, and reconfigure
 else
   if [ -z "$SKIP_SUBMODULE_UPDATE" ]; then
-    cd $MOOSE_DIR
-    git_dir=`git rev-parse --show-cdup 2>/dev/null`
-    if [[ $? -eq 0 ]] && [ -z "$SKIP" ] && [["x$git_dir" == "x" ]]; then
+    cd "$MOOSE_DIR"
+    echo "[DEBUG]"
+    echo "tree -a -L 3"
+    git_dir=$(git rev-parse --show-cdup 2>/dev/null)
+    if [[ $? -eq 0 ]] && [ -z "$SKIP" ] && [[ "$git_dir" == "" ]]; then
       git submodule update --init --recursive "${WASP_SRC_DIR}"
     fi
   fi
@@ -74,4 +77,5 @@ if [[ $? -ne 0 ]] ; then
   echo "Error: build step for WASP failed to complete successfully"
   exit 1
 fi
+echo "[DEBUG] wasp configure successful"
 exit 0
