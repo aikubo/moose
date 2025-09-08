@@ -151,9 +151,10 @@ cd wasp ; \
 git checkout ${WASP_REV} ; \
 git submodule update --init --recursive ; \
 cd ../../.. ; \
-./scripts/update_and_rebuild_wasp.sh ${WASP_OPTIONS} -D CMAKE_INSTALL_PREFIX:STRING=${WASP_DIR} ; \
-rm -rf framework || true
-
+./scripts/update_and_rebuild_wasp.sh ${WASP_OPTIONS} -DCMAKE_INSTALL_PREFIX:STRING=${WASP_DIR} ; \
+rm -rf framework || true ; \
+# Ensure WASP was installed via include directory
+if [ ! -d $WASP_DIR/include/ ]; then exit 1; fi
 #-----------------------------------------------------------------------------#
 # Copy and build MOOSE framework, test, and optionally modules
 #-----------------------------------------------------------------------------#

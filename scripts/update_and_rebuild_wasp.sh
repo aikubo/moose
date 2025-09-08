@@ -7,7 +7,7 @@
 #*
 #* Licensed under LGPL 2.1, please see LICENSE for details
 #* https://www.gnu.org/licenses/lgpl-2.1.html
-set -ex
+set -x
 echo "[DEBUG] USING AIKUBO FIX"
 
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
@@ -27,6 +27,8 @@ for ARG in "$@" ; do
   else                                               EXTRA_ARGS+=("$ARG")
   fi
 done
+
+echo '[DEBUG] EXTRA_ARGS: %q\n' "${EXTRA_ARGS[@]}"
 
 # Display the help menu to show the list of available options if requested
 if [[ -n "${HELP}" ]] ; then
@@ -52,7 +54,10 @@ else
   if [ -z "$SKIP_SUBMODULE_UPDATE" ]; then
     cd "$MOOSE_DIR"
     echo "[DEBUG]"
-    echo "tree -a -L 3"
+    git rev-parse --is-inside-work-tree && echo "[DEBUG] inside git repo" || echo "[DEBUG] not a git repo"
+    git rev-parse --show-cdup || echo "[DEBUG] git rev-parse failed (no repo?)"
+    git rev-parse --show-cdup
+    tree -a -L 3
     git_dir=$(git rev-parse --show-cdup 2>/dev/null)
     if [[ $? -eq 0 ]] && [ -z "$SKIP" ] && [[ "$git_dir" == "" ]]; then
       git submodule update --init --recursive "${WASP_SRC_DIR}"
